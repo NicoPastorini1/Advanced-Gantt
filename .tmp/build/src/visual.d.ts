@@ -63,5 +63,5 @@ export declare class Visual implements IVisual {
     private parseData;
     private buildRows;
     private redrawZoomedElements;
-    private updateSelectedFormatFromZoom;
+    private getFormatByZoom;
 }
