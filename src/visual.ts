@@ -539,8 +539,8 @@ export class Visual implements IVisual {
 
 
         this.redrawZoomedElements(newX, this.y, barH);
-        this.axisTopContentG?.attr("transform", `translate(${t.x}, 0) scale(${t.k}, 1)`);
-        this.axisBottomContentG?.attr("transform", `translate(${t.x}, 0) scale(${t.k}, 1)`);
+        this.axisTopContentG?.attr("transform", `translate(0, 0)`);
+        this.axisBottomContentG?.attr("transform", `translate(0, 0)`);
       });
 
     this.ganttSVG.call(zoomBehavior);
@@ -1033,7 +1033,7 @@ export class Visual implements IVisual {
     const xAxisBottomContentG = this.xAxisFixedG
       .append("g")
       .attr("class", "axis-bottom-content")
-
+      
 
     renderXAxisBottom({
       xScale: x,
@@ -1171,7 +1171,7 @@ export class Visual implements IVisual {
     return { visibleRows: rows, expanded: cache };
   }
 
-  private redrawZoomedElements(
+   private redrawZoomedElements(
     newX: d3.ScaleTime<number, number>,
     y: d3.ScaleBand<string>,
     barH: number
@@ -1239,6 +1239,39 @@ export class Visual implements IVisual {
     this.axisTopContentG?.selectAll<SVGLineElement, Date>("line")
       .attr("x1", d => newX(d))
       .attr("x2", d => newX(d));
+
+    // Actualizar posición de fondo si es formato Día o Todo
+    if (this.axisBottomContentG?.select("rect.x-label-bg").size()) {
+      this.axisBottomContentG.selectAll<SVGRectElement, Date>("rect.x-label-bg")
+        .attr("x", d => {
+          const xVal = newX(d);
+          return isFinite(xVal) ? xVal : -9999;
+        })
+        .attr("width", (d, i, nodes) => {
+          const nextTick = i + 1 < nodes.length ? d3.select(nodes[i + 1]).datum() as Date : null;
+          const start = newX(d);
+          const end = nextTick ? newX(nextTick) : newX.range()[1];
+
+          if (!isFinite(start) || !isFinite(end)) return 0;
+          const width = end - start;
+          return width > 0 ? width : 0;
+        });
+    }
+
+    this.axisBottomContentG?.selectAll<SVGLineElement, Date>("line.x-tick")
+      .attr("x1", d => newX(d))
+      .attr("x2", d => newX(d));
+
+    this.axisBottomContentG?.selectAll<SVGTextElement, Date>("text.x-label")
+      .attr("x", (d, i, nodes) => {
+        const nextTick = i + 1 < nodes.length ? d3.select(nodes[i + 1]).datum() as Date : null;
+        const nextX = nextTick ? newX(nextTick) : newX.range()[1];
+        return (newX(d) + nextX) / 2;
+      });
+
+    this.axisBottomContentG?.selectAll<SVGLineElement, unknown>("line.x-domain")
+      .attr("x1", newX.range()[0])
+      .attr("x2", newX.range()[1]);
 
     this.ganttG.selectAll<SVGRectElement, Date>("rect.weekend")
       .attr("x", d => newX(d))
