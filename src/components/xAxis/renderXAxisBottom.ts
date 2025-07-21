@@ -1,53 +1,130 @@
 import * as d3 from "d3";
-import { getMidpoints } from "./getMidpoints";
+import { VisualFormattingSettingsModel } from "../../settings";
+import { esLocale } from "../../utils/esLocale";
 
-export function renderXAxisBottom(ctx: any, xStart: Date, xEnd: Date): void {
-  const ax = ctx.fmtSettings.axisXCard;
+export function renderXAxisBottom(params: {
+  xScale: d3.ScaleTime<number, number>;
+  svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
+  height: number;
+  width: number;
+  selectedFormat: string;
+  translateX?: number;
+  fmtSettings: VisualFormattingSettingsModel;
+}): void {
+  const {
+    xScale,
+    svg,
+    height,
+    selectedFormat,
+    translateX = 0,
+    fmtSettings
+  } = params;
+
+  const domainStart = xScale.domain()[0];
+  const domainEnd = xScale.domain()[1];
+  const axisFmt = fmtSettings.axisXCard;
+  const weekendFmt = fmtSettings.weekendCard;
+
+  let formatFunc: (d: Date) => string;
   let intervals: Date[] = [];
-  let format: (d: Date) => string;
 
-   
-  switch (ctx.selectedFormat) {
+  switch (selectedFormat) {
     case "Hora":
-      intervals = d3.timeHours(xStart, xEnd);
-      format = d3.timeFormat("%H:%M");
+      formatFunc = esLocale.format("%H:%M");
+      intervals = d3.timeHours(domainStart, domainEnd);
       break;
     case "Día":
-      intervals = d3.timeDays(xStart, xEnd);
-      format = d3.timeFormat("%d");
+      formatFunc = esLocale.format("%d");
+      intervals = d3.timeDays(domainStart, domainEnd);
       break;
     case "Mes":
-      intervals = d3.timeMonths(xStart, xEnd);
-      format = ctx.esLocale.format("%b");
+      formatFunc = esLocale.format("%b");
+      intervals = d3.timeMonths(domainStart, domainEnd);
       break;
     case "Año":
-      intervals = d3.timeYears(xStart, xEnd);
-      format = d3.timeFormat("%Y");
+      formatFunc = esLocale.format("%Y");
+      intervals = d3.timeYears(domainStart, domainEnd);
       break;
     case "Todo":
-      intervals = d3.timeMonths(xStart, xEnd);
-      format = ctx.esLocale.format("%b %Y");
+    default:
+      formatFunc = esLocale.format("%d");
+      intervals = d3.timeDays(domainStart, domainEnd);
       break;
   }
 
-  const labelData = getMidpoints(intervals, xEnd, ctx.x);
+  if (+intervals[intervals.length - 1] < +domainEnd) {
+    intervals.push(new Date(domainEnd));
+  }
 
-  const axisBottomG = ctx.xAxisFixedG.append("g")
+  const labelData = intervals.slice(0, -1);
+  const midTicks = intervals.map((d, i) => {
+    const start = d;
+    const end = intervals[i + 1] || domainEnd;
+    return new Date((start.getTime() + end.getTime()) / 2);
+  });
+
+  svg
     .attr("class", "x-axis-bottom")
-    .attr("transform", `translate(0, 58)`);
+    .attr("transform", `translate(${translateX}, ${height})`);
 
-  axisBottomG.selectAll("text")
+  svg.selectAll("*").remove();
+
+    if (selectedFormat === "Día" || selectedFormat === "Todo") {
+    svg.selectAll("rect.x-label-bg")
+      .data(labelData)
+      .enter()
+      .append("rect")
+      .attr("class", "x-label-bg")
+      .attr("x", (d, i) => Math.floor(xScale(d)))
+      .attr("y", 0)
+      .attr("width", (d, i) =>
+        Math.floor(xScale(intervals[i + 1])) - Math.floor(xScale(d))
+      )
+      .attr("height", 40)
+      .attr("stroke", "none")
+      .attr("zindex", 1)
+      .attr("fill", d =>
+        (d.getDay() === 0 || d.getDay() === 6)
+          ? weekendFmt.markerColor.value.value
+          : "none"
+      );
+  }
+
+  svg.selectAll("line.x-tick")
+    .data(intervals)
+    .enter()
+    .append("line")
+    .attr("class", "x-tick")
+    .attr("x1", d => xScale(d))
+    .attr("x2", d => xScale(d))
+    .attr("y1", 30)
+    .attr("y2", 0)
+    .attr("stroke", "#bbb")
+    .attr("stroke-width", 1.5);
+
+  svg.append("line")
+    .attr("class", "x-domain")
+    .attr("x1", xScale.range()[0])
+    .attr("x2", xScale.range()[1])
+    .attr("y1", 30)
+    .attr("y2", 30)
+    .attr("stroke", "#bbb")
+    .attr("stroke-width", 2);
+
+  svg.selectAll("text.x-label")
     .data(labelData)
     .enter()
     .append("text")
-    .attr("x", d => d.pos)
-    .attr("y", -20)
+    .attr("class", "x-label")
+    .attr("x", (d, i) => (xScale(d) + xScale(intervals[i + 1])) / 2)
+    .attr("y", 10)
     .attr("text-anchor", "middle")
-    .text(d => format(d.date))
-    .attr("font-size", ax.fontSize.value)
-    .attr("font-family", ax.fontFamily.value)
-    .attr("fill", ax.fontColor.value.value)
-    .attr("font-weight", ax.bold.value ? "bold" : "normal")
-    .attr("font-style", ax.italic.value ? "italic" : "normal")
-    .attr("text-decoration", ax.underline.value ? "underline" : "none");
+    .attr("alignment-baseline", "hanging")
+    .attr("font-size", axisFmt.fontSize.value)
+    .attr("font-family", axisFmt.fontFamily.value)
+    .attr("fill", axisFmt.fontColor.value.value)
+    .attr("font-weight", axisFmt.bold.value ? "bold" : "normal")
+    .attr("font-style", axisFmt.italic.value ? "italic" : "normal")
+    .attr("text-decoration", axisFmt.underline.value ? "underline" : "none")
+    .text(formatFunc);
 }

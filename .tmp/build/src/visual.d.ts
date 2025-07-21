@@ -28,8 +28,8 @@ export declare class Visual implements IVisual {
     private yAxisSVG;
     private ganttDiv;
     private ganttSVG;
-    private axisBottomContentG;
     private axisTopContentG;
+    private axisBottomContentG;
     private leftBtns;
     private rightBtns;
     private leftG;
@@ -63,5 +63,4 @@ export declare class Visual implements IVisual {
     private parseData;
     private buildRows;
     private redrawZoomedElements;
-    private getFormatByZoom;
 }

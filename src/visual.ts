@@ -3,7 +3,6 @@
 import "./../style/visual.less";
 import * as d3 from "d3";
 import powerbi from "powerbi-visuals-api";
-import { esLocale } from "./utils/esLocale"; // Formatting X Axis label
 import { renderDurationLabels } from "./utils/renderLabels";
 import { renderFormatButtons } from "./components/formatButtons";
 import { renderParentToggleButtons } from "./components/parentButtons";
@@ -13,7 +12,8 @@ import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-visuals-utils-tooltiputils";
 import ypfBg from "../assets/ypf_background.svg";
 import { dataViewObjects } from "powerbi-visuals-utils-dataviewutils";
-
+import { renderXAxisBottom } from "./components/xAxis/renderXAxisBottom";
+import { renderXAxisTop } from "./components/xAxis/renderXAxisTop";
 // powerbi.visuals
 import IVisual = powerbi.extensibility.IVisual;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
@@ -21,9 +21,6 @@ import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import ISelectionID = powerbi.visuals.ISelectionId
 import IVisualHost = powerbi.extensibility.visual.IVisualHost;
 import DataView = powerbi.DataView;
-import FormattingModel = powerbi.visuals.FormattingModel;
-import VisualShortcutType = powerbi.visuals.VisualShortcutType;
-import VisualSubSelectionShortcuts = powerbi.visuals.VisualSubSelectionShortcuts;
 import DataViewCategoryColumn = powerbi.DataViewCategoryColumn;
 import DataViewObjectPropertyIdentifier = powerbi.DataViewObjectPropertyIdentifier;
 import ISandboxExtendedColorPalette = powerbi.extensibility.ISandboxExtendedColorPalette;
@@ -37,7 +34,7 @@ interface Task {
   start: Date;
   end: Date;
   fields: string[];
-  completion?: number; 
+  completion?: number;
 }
 interface VisualRow {
   id: string;
@@ -45,7 +42,7 @@ interface VisualRow {
   task?: Task;
   rowKey: string;
   labelY: string;
-  duration?: number; 
+  duration?: number;
 }
 
 interface References {
@@ -102,7 +99,7 @@ function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHos
   }
 
   const categorical = dataViews[0].categorical;
-  const parent = categorical.categories[1]; 
+  const parent = categorical.categories[1];
 
   const colorPalette: ISandboxExtendedColorPalette = host.colorPalette;
 
@@ -166,8 +163,8 @@ export class Visual implements IVisual {
   private yAxisSVG: d3.Selection<SVGSVGElement, unknown, null, undefined>;
   private ganttDiv: d3.Selection<HTMLDivElement, unknown, null, undefined>;
   private ganttSVG: d3.Selection<SVGSVGElement, unknown, null, undefined>;
-  private axisBottomContentG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private axisTopContentG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+  private axisBottomContentG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private leftBtns: d3.Selection<HTMLDivElement, unknown, null, undefined>;
   private rightBtns: d3.Selection<HTMLDivElement, unknown, null, undefined>;
   private leftG: d3.Selection<SVGGElement, unknown, null, undefined>;
@@ -315,7 +312,6 @@ export class Visual implements IVisual {
       .attr("height", "100%")
       .style("display", "block");
 
-
     this.xAxisFixedDiv = d3.select(this.container)
       .append("div")
       .attr("class", "x-axis-fixed")
@@ -400,9 +396,6 @@ export class Visual implements IVisual {
 
     this.leftBtns.style("display", hasData ? "block" : "none");
     this.rightBtns.style("display", hasData ? "block" : "none");
-
-    // 
-
     const baseCols = 2;
     const visibleFieldsCount = this.taskColCount;
     const hasD = this.cacheTasks.some(t => t.fields.length > this.taskColCount);
@@ -465,7 +458,6 @@ export class Visual implements IVisual {
     let innerW = 0;
     switch (this.selectedFormat) {
       case "Hora":
-        console.log("Switch: " + this.selectedFormat)
         const numHours = d3.timeHour.count(xStart, xEnd);
         innerW = Math.max(numHours * 38, width - margin.left - margin.right);
         break;
@@ -509,54 +501,6 @@ export class Visual implements IVisual {
       .paddingOuter(0);
 
 
-    switch (this.selectedFormat) {
-      case "Año":
-        xStart = d3.timeYear.floor(xStart);
-        xEnd = d3.timeYear.offset(xEnd, 1);
-        break;
-      case "Mes":
-        xStart = d3.timeMonth.floor(xStart);
-        xEnd = d3.timeMonth.offset(xEnd, 1);
-        break;
-      case "Día":
-        xStart = d3.timeDay.floor(xStart);
-        xEnd = d3.timeDay.offset(xEnd, 1);
-        break;
-      case "Hora":
-        xStart = d3.timeHour.floor(xStart);
-        xEnd = d3.timeHour.offset(xEnd, 1);
-        break;
-      default:
-        xStart = d3.timeDay.floor(xStart);
-        xEnd = d3.timeDay.offset(xEnd, 1);
-        break;
-    }
-    if (this.selectedFormat === "Hora") {
-      const numHours = d3.timeHour.count(xStart, xEnd);
-      const minHoursWidth = 38
-      innerW = Math.max(numHours * minHoursWidth, width - margin.left - margin.right);
-    }
-    else if (this.selectedFormat === "Mes") {
-      const numMonths = d3.timeMonth.count(xStart, xEnd);
-      const minMonthWidth = 90;
-      innerW = Math.max(numMonths * minMonthWidth, width - margin.left - margin.right);
-    } else if (this.selectedFormat === "Día") {
-      const numDays = d3.timeDay.count(xStart, xEnd);
-      const minDayWidth = 38;
-      innerW = Math.max(numDays * minDayWidth, width - margin.left - margin.right);
-    }
-    else if (this.selectedFormat === "Año") {
-      const numYear = d3.timeYear.count(xStart, xEnd) < 2 ? d3.timeMonth.count(xStart, xEnd) / 3 : d3.timeYear.count(xStart, xEnd);
-      const minYearWidth = 15
-      innerW = Math.max(numYear * minYearWidth, width - margin.left - margin.right);
-    }
-    else if (this.selectedFormat === "Todo") {
-      const numDays = d3.timeDay.count(xStart, xEnd);
-      const minYearWidth = 38
-      innerW = Math.max(numDays * minYearWidth, width - margin.left - margin.right);
-    };
-
-
     this.yAxisSVG
       .attr("width", margin.left)
       .attr("height", innerH + margin.top + margin.bottom);
@@ -592,16 +536,12 @@ export class Visual implements IVisual {
         const newX = t.rescaleX(xOriginal);
         this.currentZoomTransform = t;
 
-        this.selectedFormat = this.getFormatByZoom(t.k);
-        console.log("This.Selected Format: "+this.selectedFormat)
-        console.log("getFormatByZoom: " + this.getFormatByZoom(t.k))
+
 
         this.redrawZoomedElements(newX, this.y, barH);
-        this.axisTopContentG?.attr("transform", `translate(0, 0)`);
-        this.axisBottomContentG?.attr("transform", `translate(0, 0)`);
+        this.axisTopContentG?.attr("transform", `translate(${t.x}, 0) scale(${t.k}, 1)`);
+        this.axisBottomContentG?.attr("transform", `translate(${t.x}, 0) scale(${t.k}, 1)`);
       });
-
-      console.log("ZoomBehavior: "+ zoomBehavior)
 
     this.ganttSVG.call(zoomBehavior);
 
@@ -618,7 +558,7 @@ export class Visual implements IVisual {
       const deltaX = event.deltaY;
       const current = this.currentZoomTransform ?? d3.zoomIdentity;
 
-      const newTransform = current.translate(-deltaX, 0); 
+      const newTransform = current.translate(-deltaX, 0);
       this.ganttSVG.call(zoomBehavior.transform, newTransform);
     });
     if (headFmt.show.value) {
@@ -1069,209 +1009,43 @@ export class Visual implements IVisual {
       );
     }
 
-    let formatFuncAxisTop: ((d: Date) => string) | null = null;
-    let formatFuncAxisBottom: (d: Date) => string;
-    let tickIntervalAxisTop: any = null
-    let tickIntervalAxisBottom: any = null
-    let tickValuesAxis: Date[] | null = null;
 
-    switch (this.selectedFormat) {
-      case "Hora":
-        formatFuncAxisTop = esLocale.format("%d %B")
-        formatFuncAxisBottom = d3.timeFormat("%H");
-        tickIntervalAxisTop = null;
-        tickIntervalAxisBottom = d3.timeHour.every(1);
-        {
-          const days = d3.timeDays(x.domain()[0], x.domain()[1]);
-          tickValuesAxis = days.map((d, i) => {
-            const start = d;
-            const end = days[i + 1] || x.domain()[1];
-            return new Date((start.getTime() + end.getTime()) / 2);
-          });
-        }
-        break;
 
-      case "Día":
-        formatFuncAxisTop = esLocale.format("%B %y");
-        formatFuncAxisBottom = d3.timeFormat("%d");
-        tickIntervalAxisTop = null;
-        tickIntervalAxisBottom = d3.timeDay.every(1);
-        {
-          const months = d3.timeMonths(x.domain()[0], x.domain()[1]);
-          tickValuesAxis = months.map((d, i) => {
-            const start = d;
-            const end = months[i + 1] || x.domain()[1];
-            return new Date((start.getTime() + end.getTime()) / 2);
-          });
-        }
-        break;
-
-      case "Mes":
-        formatFuncAxisTop = d3.timeFormat("%Y");
-        formatFuncAxisBottom = esLocale.format("%b");
-        tickIntervalAxisTop = null;
-        tickIntervalAxisBottom = d3.timeMonth.every(1);
-        {
-          const years = d3.timeYears(x.domain()[0], x.domain()[1]);
-          tickValuesAxis = years.map((d, i) => {
-            const start = d;
-            const end = years[i + 1] || x.domain()[1];
-            return new Date((start.getTime() + end.getTime()) / 2);
-          });
-        }
-        break;
-      case "Año":
-        formatFuncAxisTop = null;
-        formatFuncAxisBottom = d3.timeFormat("%Y");
-        tickIntervalAxisTop = null;
-        tickIntervalAxisBottom = d3.timeYear.every(1);
-        tickValuesAxis = null;
-        {
-          const years = d3.timeYears(x.domain()[0], x.domain()[1]);
-          tickValuesAxis = years.map((d, i) => {
-            const start = d;
-            const end = years[i + 1] || x.domain()[1];
-            return new Date((start.getTime() + end.getTime()) / 1.5);
-          });
-        }
-        break;
-      case "Todo":
-        formatFuncAxisTop = esLocale.format("%B %y");
-        formatFuncAxisBottom = d3.timeFormat("%d");
-        tickIntervalAxisTop = null;
-        tickIntervalAxisBottom = d3.timeDay.every(1);
-        {
-          const months = d3.timeMonths(x.domain()[0], x.domain()[1]);
-          tickValuesAxis = months.map((d, i) => {
-            const start = d;
-            const end = months[i + 1] || x.domain()[1];
-            return new Date((start.getTime() + end.getTime()) / 2);
-          });
-        }
-        break;
-    }
     const ax = this.fmtSettings.axisXCard;
-    if (formatFuncAxisTop && tickValuesAxis) {
-      this.axisTopContentG = this.xAxisFixedG
-        .append("g")
-        .attr("class", "axis-top-content")
-        .attr("transform", `translate(0, 0)`);
 
-      const xAxis2 = this.axisTopContentG.append("g")
-        .attr("transform", `translate(${margin.left}, 25)`)
-        .call(
-          d3.axisTop(x)
-            .tickValues(tickValuesAxis)
-            .tickFormat(formatFuncAxisTop)
-        );
-      xAxis2.selectAll(".tick line").attr("display", "none");
-      xAxis2.selectAll(".domain").attr("display", "none");
-      xAxis2.selectAll("text")
-        .attr("font-size", ax.fontSize.value)
-        .attr("font-family", ax.fontFamily.value)
-        .attr("fill", ax.fontColor.value.value)
-        .attr("font-weight", ax.bold.value ? "bold" : "normal")
-        .attr("font-style", ax.italic.value ? "italic" : "normal")
-        .attr("text-decoration", ax.underline.value ? "underline" : "none");
-    }
-    // axis bottomg
-    this.axisBottomContentG = this.xAxisFixedG
+    const xAxisTopContentG = this.xAxisFixedG
+      .append("g")
+      .attr("class", "axis-top-content")
+      .attr("transform", `translate(0, 0)`);
+
+    renderXAxisTop({
+      xScale: x,
+      svg: xAxisTopContentG,
+      height: 30,
+      width: width,
+      selectedFormat: this.selectedFormat,
+      translateX: margin.left,
+      fmtSettings: this.fmtSettings
+    });
+
+
+
+    const xAxisBottomContentG = this.xAxisFixedG
       .append("g")
       .attr("class", "axis-bottom-content")
-      .attr("transform", `translate(0, 0)`); // se actualizará dinámicamente
 
-    const axisBottomG = this.axisBottomContentG
-      .append("g")
-      .attr("class", "custom-x-axis")
-      .attr("transform", `translate(${margin.left}, 58)`);
-    let intervals: Date[];
-    let nextInterval: (d: Date) => Date;
-    let labelFormat: (d: Date) => string;
 
-    switch (this.selectedFormat) {
-      case "Hora":
-        intervals = d3.timeHours(xStart, xEnd);
-        nextInterval = (d) => d3.timeHour.offset(d, 1);
-        labelFormat = d3.timeFormat("%H");
-        break;
-      case "Día":
-      case "Todo":
-        intervals = d3.timeDays(xStart, xEnd);
-        nextInterval = (d) => d3.timeDay.offset(d, 1);
-        labelFormat = d3.timeFormat("%d");
-        break;
-      case "Mes":
-        intervals = d3.timeMonths(xStart, xEnd);
-        nextInterval = (d) => d3.timeMonth.offset(d, 1);
-        labelFormat = esLocale.format("%b");
-        break;
-      case "Año":
-        intervals = d3.timeYears(xStart, xEnd);
-        nextInterval = (d) => d3.timeYear.offset(d, 1);
-        labelFormat = d3.timeFormat("%Y");
-        break;
-      default:
-        intervals = d3.timeDays(xStart, xEnd);
-        nextInterval = (d) => d3.timeDay.offset(d, 1);
-        labelFormat = d3.timeFormat("%d");
-        break;
-    }
-    if (+intervals[intervals.length - 1] < +xEnd) {
-      intervals.push(new Date(xEnd));
-    }
-    const labelData = intervals.slice(0, -1);
-    if (this.selectedFormat === "Día" || this.selectedFormat === "Todo") {
-      axisBottomG.selectAll("rect.x-label-bg")
-        .data(labelData)
-        .enter()
-        .append("rect")
-        .attr("class", "x-label-bg")
-        .attr("x", (d, i) => x(d))
-        .attr("y", -30)
-        .attr("width", (d, i) => x(intervals[i + 1]) - x(d) + 1)
-        .attr("height", 30)
-        .attr("stroke", "none")
-        .attr("zindex", 1)
-        .attr("fill", d => (d.getDay() === 0 || d.getDay() === 6) ? this.fmtSettings.weekendCard.markerColor.value.value : "none");
-    }
-    axisBottomG.selectAll("line.x-tick")
-      .data(intervals)
-      .enter()
-      .append("line")
-      .attr("class", "x-tick")
-      .attr("x1", d => x(d))
-      .attr("x2", d => x(d))
-      .attr("y1", -20)
-      .attr("y2", 0)
-      .attr("stroke", "#bbb")
-      .attr("stroke-width", 1.5);
-
-    axisBottomG.append("line")
-      .attr("class", "x-domain")
-      .attr("x1", x.range()[0])
-      .attr("x2", x.range()[1])
-      .attr("y1", 0)
-      .attr("y2", 0)
-      .attr("stroke", "#bbb")
-      .attr("zindex", "15000")
-      .attr("stroke-width", 2);
-    axisBottomG.selectAll("text.x-label")
-      .data(labelData)
-      .enter()
-      .append("text")
-      .attr("class", "x-label")
-      .attr("x", (d, i) => (x(d) + x(intervals[i + 1])) / 2)
-      .attr("y", -20)
-      .attr("text-anchor", "middle")
-      .attr("alignment-baseline", "hanging")
-      .attr("font-size", ax.fontSize.value)
-      .attr("font-family", ax.fontFamily.value)
-      .attr("fill", ax.fontColor.value.value)
-      .attr("font-weight", ax.bold.value ? "bold" : "normal")
-      .attr("font-style", ax.italic.value ? "italic" : "normal")
-      .attr("text-decoration", ax.underline.value ? "underline" : "none")
-      .text(labelFormat);
+    renderXAxisBottom({
+      xScale: x,
+      svg: xAxisBottomContentG,
+      height: 30,
+      width: width,
+      selectedFormat: this.selectedFormat,
+      translateX: margin.left,
+      fmtSettings: this.fmtSettings
+    });
   }
+
   private renderLanding(width: number, height: number) {
     this.landingG.attr("display", null).selectAll("*").remove();
     this.landingG.append("rect")
@@ -1279,7 +1053,7 @@ export class Visual implements IVisual {
       .attr("height", height)
       .attr("fill", "#F3F3F3");
 
-    const img = 180;
+    const img = 250;
     this.landingG.append("image")
       .attr("href", ypfBg)
       .attr("xlink:href", ypfBg)
@@ -1466,39 +1240,6 @@ export class Visual implements IVisual {
       .attr("x1", d => newX(d))
       .attr("x2", d => newX(d));
 
-    // Actualizar posición de fondo si es formato Día o Todo
-    if (this.axisBottomContentG?.select("rect.x-label-bg").size()) {
-      this.axisBottomContentG.selectAll<SVGRectElement, Date>("rect.x-label-bg")
-        .attr("x", d => {
-          const xVal = newX(d);
-          return isFinite(xVal) ? xVal : -9999;
-        })
-        .attr("width", (d, i, nodes) => {
-          const nextTick = i + 1 < nodes.length ? d3.select(nodes[i + 1]).datum() as Date : null;
-          const start = newX(d);
-          const end = nextTick ? newX(nextTick) : newX.range()[1];
-
-          if (!isFinite(start) || !isFinite(end)) return 0;
-          const width = end - start;
-          return width > 0 ? width : 0;
-        });
-    }
-
-    this.axisBottomContentG?.selectAll<SVGLineElement, Date>("line.x-tick")
-      .attr("x1", d => newX(d))
-      .attr("x2", d => newX(d));
-
-    this.axisBottomContentG?.selectAll<SVGTextElement, Date>("text.x-label")
-      .attr("x", (d, i, nodes) => {
-        const nextTick = i + 1 < nodes.length ? d3.select(nodes[i + 1]).datum() as Date : null;
-        const nextX = nextTick ? newX(nextTick) : newX.range()[1];
-        return (newX(d) + nextX) / 2;
-      });
-
-    this.axisBottomContentG?.selectAll<SVGLineElement, unknown>("line.x-domain")
-      .attr("x1", newX.range()[0])
-      .attr("x2", newX.range()[1]);
-
     this.ganttG.selectAll<SVGRectElement, Date>("rect.weekend")
       .attr("x", d => newX(d))
       .attr("width", d => newX(d3.timeDay.offset(d, 2)) - newX(d));
@@ -1511,18 +1252,5 @@ export class Visual implements IVisual {
       .attr("x1", d => newX(d))
       .attr("x2", d => newX(d));
 
-  }
-
-
-  private getFormatByZoom(zoomK: number): string {
-    if (zoomK >= 0.85) {
-      return "Hora";
-    } else if (zoomK >= 0.6) {
-      return "Día";
-    } else if (zoomK >= 0.4) {
-      return "Mes";
-    } else {
-      return "Año";
-    }
   }
 }
