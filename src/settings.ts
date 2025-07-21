@@ -348,6 +348,7 @@ class WeekendCardSettings extends SimpleCard{
     }
 
 class adminSettings extends SimpleCard {
+
     Alto = new NumUpDown({
         name: "Alto",
         displayName: "Alto",

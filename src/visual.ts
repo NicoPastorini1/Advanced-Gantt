@@ -157,6 +157,8 @@ function getColumnColorByIndex(
   return colorFromObjects?.solid.color ?? defaultColor.solid.color;
 }
 
+type FormatType = 'Hora' | 'Día' | 'Mes' | 'Año' | 'Todo';
+
 export class Visual implements IVisual {
   private container: HTMLElement;
   private yAxisDiv: d3.Selection<HTMLDivElement, unknown, null, undefined>;
@@ -177,7 +179,7 @@ export class Visual implements IVisual {
   private expanded = new Map<string, boolean>();
   private cacheTasks: Task[] = [];
   private groupRange = new Map<string, { start: Date; end: Date }>();
-  private selectedFormat: string = "Todo";
+  private selectedFormat: FormatType = "Todo";
   private lastOptions: VisualUpdateOptions;
   private taskColCount = 0;
   private taskColNames: string[] = [];
@@ -190,6 +192,9 @@ export class Visual implements IVisual {
   private currentZoomTransform?: d3.ZoomTransform;
   private isZooming: boolean = false;
   private y: d3.ScaleBand<string>;
+  private lastFormatRendered: FormatType | null = null;
+  private lastVisibleDomain: [Date, Date] | null = null;
+
 
   private getGroupBarPath(
     scaleX: d3.ScaleTime<number, number>,
@@ -265,23 +270,26 @@ export class Visual implements IVisual {
       container: this.rightBtns.node() as HTMLElement,
       selectedFormat: this.selectedFormat,
       onFormatChange: (fmt: string) => {
-        this.selectedFormat = fmt;
-        this.update(this.lastOptions);
-        setTimeout(() => {
-          const svgWidth = this.ganttSVG.node()?.getBoundingClientRect().width ?? 0;
-          const divWidth = this.ganttDiv.node()?.getBoundingClientRect().width ?? 0;
+        if (["Hora", "Día", "Mes", "Año", "Todo"].includes(fmt)) {
+          this.selectedFormat = fmt as FormatType;
+          this.update(this.lastOptions);
 
-          // Si hay diferencia, aplicar transform centrado
-          if (svgWidth > divWidth && this.ganttSVG) {
-            const offsetX = (divWidth - svgWidth) / 2;
-            this.ganttDiv.node()?.scrollTo({
-              left: -offsetX,
-              behavior: "smooth"
-            });
-          }
-        }, 50);
+          setTimeout(() => {
+            const svgWidth = this.ganttSVG.node()?.getBoundingClientRect().width ?? 0;
+            const divWidth = this.ganttDiv.node()?.getBoundingClientRect().width ?? 0;
+
+            if (svgWidth > divWidth && this.ganttSVG) {
+              const offsetX = (divWidth - svgWidth) / 2;
+              this.ganttDiv.node()?.scrollTo({
+                left: -offsetX,
+                behavior: "smooth"
+              });
+            }
+          }, 50);
+        }
       }
     });
+
 
     const layoutDiv = d3.select(this.container)
       .append("div")
@@ -338,6 +346,7 @@ export class Visual implements IVisual {
       this.xAxisFixedG.attr("transform", `translate(${-scrollLeft},0)`);
       this.leftG.select<SVGGElement>(".y-content")
         .attr("transform", `translate(0, ${60 - scrollTop})`);
+      event.preventDefault(); // previene el scroll nativo
 
     });
 
@@ -526,24 +535,63 @@ export class Visual implements IVisual {
 
 
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.2, 1])
+      .scaleExtent([0.35, 100])
       .translateExtent([[0, 0], [innerW, height]])
-      .filter((event) => {
-        return !(event.type === "mousedown" && (event.button === 0 || event.button === 1));
-      })
+      .filter((event) => event.type !== "dblclick")
       .on("zoom", (event) => {
-        const t = event.transform;
-        const newX = t.rescaleX(xOriginal);
+        let t = event.transform;
+
+        // Escala resultante con transform actual
+        let newX = t.rescaleX(xOriginal);
+        let minDate = new Date("2023-01-01");
+        let maxDate = new Date("2026-12-31");
+
+        // Clamping basado en dominio
+        if (minDate < minDate) {
+          const offset = xOriginal(minDate) - xOriginal(minDate);
+          t = t.translate(offset, 0);
+        }
+        if (maxDate > maxDate) {
+          const offset = xOriginal(maxDate) - xOriginal(maxDate);
+          t = t.translate(offset, 0);
+        }
+
+        // Recalcular con transform corregido
         this.currentZoomTransform = t;
+        newX = t.rescaleX(xOriginal);
+        [minDate, maxDate] = newX.domain();
 
-
-
+        // Redibujar elementos
         this.redrawZoomedElements(newX, this.y, barH);
-        this.axisTopContentG?.attr("transform", `translate(0, 0)`);
-        this.axisBottomContentG?.attr("transform", `translate(0, 0)`);
+
+        // Actualizar formato según días visibles
+        const diffInDays = (maxDate.getTime() - minDate.getTime()) / (1000 * 3600 * 24);
+        this.selectedFormat = this.updateSelectedFormatFromZoom(diffInDays);
+
+        // Redibujar ejes
+        renderXAxisTop({
+          xScale: newX,
+          svg: this.axisTopContentG,
+          height: 30,
+          width: width,
+          selectedFormat: this.selectedFormat,
+          translateX: margin.left,
+          fmtSettings: this.fmtSettings
+        });
+
+        renderXAxisBottom({
+          xScale: newX,
+          svg: this.axisBottomContentG,
+          height: 30,
+          width: width,
+          selectedFormat: this.selectedFormat,
+          translateX: margin.left,
+          fmtSettings: this.fmtSettings
+        });
       });
 
     this.ganttSVG.call(zoomBehavior);
+
 
 
 
@@ -561,6 +609,8 @@ export class Visual implements IVisual {
       const newTransform = current.translate(-deltaX, 0);
       this.ganttSVG.call(zoomBehavior.transform, newTransform);
     });
+
+
     if (headFmt.show.value) {
       const header = yAxisContentG.append("g")
         .attr("class", "y-grid")
@@ -1013,14 +1063,14 @@ export class Visual implements IVisual {
 
     const ax = this.fmtSettings.axisXCard;
 
-    const xAxisTopContentG = this.xAxisFixedG
+    this.axisTopContentG = this.xAxisFixedG
       .append("g")
       .attr("class", "axis-top-content")
       .attr("transform", `translate(0, 0)`);
 
     renderXAxisTop({
       xScale: x,
-      svg: xAxisTopContentG,
+      svg: this.axisTopContentG,
       height: 30,
       width: width,
       selectedFormat: this.selectedFormat,
@@ -1030,14 +1080,15 @@ export class Visual implements IVisual {
 
 
 
-    const xAxisBottomContentG = this.xAxisFixedG
+    this.axisBottomContentG = this.xAxisFixedG
       .append("g")
       .attr("class", "axis-bottom-content")
-      
+      .attr("transform", `translate(0, 0)`);
+
 
     renderXAxisBottom({
       xScale: x,
-      svg: xAxisBottomContentG,
+      svg: this.axisBottomContentG,
       height: 30,
       width: width,
       selectedFormat: this.selectedFormat,
@@ -1171,7 +1222,7 @@ export class Visual implements IVisual {
     return { visibleRows: rows, expanded: cache };
   }
 
-   private redrawZoomedElements(
+  private redrawZoomedElements(
     newX: d3.ScaleTime<number, number>,
     y: d3.ScaleBand<string>,
     barH: number
@@ -1286,4 +1337,14 @@ export class Visual implements IVisual {
       .attr("x2", d => newX(d));
 
   }
+
+  private updateSelectedFormatFromZoom(diffInDays: number): FormatType {
+    if (diffInDays < 10) return 'Hora';
+    if (diffInDays < 110) return 'Día';
+    if (diffInDays < 749) return 'Mes';
+    if (diffInDays >= 750) return 'Año';
+    return 'Año'; // Comodín por si algo falla
+  }
+
+
 }

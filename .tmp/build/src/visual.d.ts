@@ -55,6 +55,8 @@ export declare class Visual implements IVisual {
     private currentZoomTransform?;
     private isZooming;
     private y;
+    private lastFormatRendered;
+    private lastVisibleDomain;
     private getGroupBarPath;
     constructor(opts: VisualConstructorOptions);
     update(opts: VisualUpdateOptions): void;
@@ -63,4 +65,5 @@ export declare class Visual implements IVisual {
     private parseData;
     private buildRows;
     private redrawZoomedElements;
+    private updateSelectedFormatFromZoom;
 }

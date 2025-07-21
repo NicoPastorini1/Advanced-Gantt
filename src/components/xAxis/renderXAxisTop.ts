@@ -38,7 +38,7 @@ export function renderXAxisTop(params: {
 
   switch (selectedFormat) {
     case "Hora":
-      intervals = d3.timeDays(domainStart, domainEnd);
+      intervals = xScale.ticks(d3.timeDay.every(30));
       labelFormat = esLocale.format("%d %B");
       break;
     case "Día":

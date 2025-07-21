@@ -2,12 +2,15 @@ import * as d3 from "d3";
 import { VisualFormattingSettingsModel } from "../../settings";
 import { esLocale } from "../../utils/esLocale";
 
+type FormatType = 'Hora' | 'Día' | 'Mes' | 'Año' | 'Todo';
+
+
 export function renderXAxisBottom(params: {
   xScale: d3.ScaleTime<number, number>;
   svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
   height: number;
   width: number;
-  selectedFormat: string;
+  selectedFormat: FormatType;
   translateX?: number;
   fmtSettings: VisualFormattingSettingsModel;
 }): void {
@@ -30,25 +33,27 @@ export function renderXAxisBottom(params: {
 
   switch (selectedFormat) {
     case "Hora":
-      formatFunc = esLocale.format("%H:%M");
-      intervals = d3.timeHours(domainStart, domainEnd);
+      const visibleHours = (domainEnd.getTime() - domainStart.getTime()) / (1000 * 60 * 60);
+      const everyN = visibleHours > 48 ? 4 : visibleHours > 24 ? 2 : 1;
+      formatFunc = esLocale.format("%H");
+      intervals = xScale.ticks(d3.timeHour.every(everyN));
       break;
     case "Día":
       formatFunc = esLocale.format("%d");
-      intervals = d3.timeDays(domainStart, domainEnd);
+      intervals = xScale.ticks(d3.timeDay.every(1));
       break;
     case "Mes":
       formatFunc = esLocale.format("%b");
-      intervals = d3.timeMonths(domainStart, domainEnd);
+      intervals = xScale.ticks(d3.timeMonth.every(1));
       break;
     case "Año":
       formatFunc = esLocale.format("%Y");
-      intervals = d3.timeYears(domainStart, domainEnd);
+      intervals = xScale.ticks(d3.timeYear.every(1));
       break;
     case "Todo":
     default:
       formatFunc = esLocale.format("%d");
-      intervals = d3.timeDays(domainStart, domainEnd);
+      intervals = xScale.ticks(d3.timeDay.every(1));
       break;
   }
 
@@ -57,11 +62,6 @@ export function renderXAxisBottom(params: {
   }
 
   const labelData = intervals.slice(0, -1);
-  const midTicks = intervals.map((d, i) => {
-    const start = d;
-    const end = intervals[i + 1] || domainEnd;
-    return new Date((start.getTime() + end.getTime()) / 2);
-  });
 
   svg
     .attr("class", "x-axis-bottom")
@@ -69,7 +69,7 @@ export function renderXAxisBottom(params: {
 
   svg.selectAll("*").remove();
 
-    if (selectedFormat === "Día" || selectedFormat === "Todo") {
+  if (selectedFormat === "Día" || selectedFormat === "Todo") {
     svg.selectAll("rect.x-label-bg")
       .data(labelData)
       .enter()
