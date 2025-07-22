@@ -815,44 +815,6 @@ export class Visual implements IVisual {
 
     this.ganttG = this.ganttSVG.append("g").attr("transform", `translate(0, ${margin.top})`);
 
-    // WEEKEND BBARRA 
-    if (this.fmtSettings.weekendCard.show.value) {
-      const backgroundG = this.ganttG.append("g").attr("class", "background-grid");
-
-
-      
-
-      if (this.selectedFormat === "Hora") {
-        const dias = d3.timeDays(xStart, xEnd);
-        backgroundG.selectAll("line.day")
-          .data(dias)
-          .enter()
-          .append("line")
-          .attr("x1", d => x(d))
-          .attr("x2", d => x(d))
-          .attr("y1", 0)
-          .attr("y2", innerH)
-          .attr("stroke", this.fmtSettings.weekendCard.markerColor.value.value)
-          .attr("stroke-width", 1)
-          .attr("class", "day");
-      }
-
-      if (this.selectedFormat === "Día" || this.selectedFormat === "Todo") {
-        const dias = d3.timeDays(xStart, xEnd);
-        console.log("Formato de if weekend: " + this.selectedFormat)
-        backgroundG.selectAll("rect.weekend")
-          .data(dias.filter(d => d.getDay() === 6)) // sábados
-          .enter()
-          .append("rect")
-          .attr("x", d => x(d))
-          .attr("y", 0)
-          .attr("width", d => x(d3.timeDay.offset(d, 2)) - x(d))
-          .attr("height", innerH)
-          .attr("fill", this.fmtSettings.weekendCard.markerColor.value.value)
-          .attr("class", "weekend");
-      }
-    }
-
     const barCfg = this.fmtSettings.barCard;
     const barH = Math.min((this.fmtSettings.barCard.barGroup.slices.find(s => s.name === "barHeight") as formattingSettings.NumUpDown)?.value ?? 30, rowH);
     const yOff = (taskFmt.taskHeight.value - barH) / 2;
@@ -1239,7 +1201,7 @@ export class Visual implements IVisual {
           .enter()
           .append("rect")
           .attr("x", d => newX(d))
-          .attr("y", 0)
+          .attr("y", -10)
           .attr("width", d => newX(d3.timeDay.offset(d, 2)) - newX(d))
           .attr("height", innerHeight)
           .attr("fill", this.fmtSettings.weekendCard.markerColor.value.value)
