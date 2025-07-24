@@ -81,6 +81,7 @@ export interface GanttDataPoint {
   color: string;
   selectionId: ISelectionID;
   index: number;
+  completion?: number;
 }
 
 // Funciones
@@ -204,9 +205,11 @@ export class Visual implements IVisual {
     const x2 = scaleX(d.end);
     const width = x2 - x1;
 
+    this.fmtSettings.adminCard.Alto.value
+
     const yTop = scaleY(d.rowKey)! + (taskHeight - barHeight) / 2;
-    const topHeight = barHeight * 0.5;
-    const tipHeight = barHeight * 0.6;
+    const topHeight = barHeight * 0.5; // Ancho de la barra de arriba
+    const tipHeight = barHeight * 0.6; // Alto de la barra
     const tipInset = Math.min(width * 0.15, 35);
 
     return `
@@ -219,6 +222,40 @@ export class Visual implements IVisual {
     Z
   `;
   }
+
+  private getCompletionByGroup(rowKey: string, allBars: BarDatum[]): number {
+    const groupId = rowKey.replace(/^G:/, ""); // ej: 'G:LC339' → 'LC339'
+
+    const children = allBars.filter(b => {
+      if (b.isGroup) return false;
+      const parts = b.rowKey.split("|");
+      return parts.length === 2 && parts[1] === groupId;
+    });
+
+    console.log(`Grupo: ${rowKey}`);
+    console.log(`ID del grupo extraído: ${groupId}`);
+    console.log(`Cantidad de hijos: ${children.length}`);
+    console.log("Completions hijos:", children.map(c => ({ rowKey: c.rowKey, completion: c.completion })));
+
+    const completions = children
+      .map(c => Number(c.completion))
+      .filter(c => !isNaN(c));
+
+    if (!completions.length) {
+      console.warn(`Sin completions válidos para grupo ${rowKey}`);
+      return 0;
+    }
+
+    const avg = completions.reduce((a, b) => a + b, 0) / completions.length;
+    const boundedAvg = Math.max(0, Math.min(1, avg > 1 ? avg / 100 : avg));
+
+    console.log(`Promedio bruto: ${avg}, Promedio acotado: ${boundedAvg}`);
+    return boundedAvg;
+  }
+
+
+
+
 
   constructor(opts: VisualConstructorOptions) {
     this.container = opts.element as HTMLElement;
@@ -815,6 +852,8 @@ export class Visual implements IVisual {
 
     this.ganttG = this.ganttSVG.append("g").attr("transform", `translate(0, ${margin.top})`);
 
+
+
     const barCfg = this.fmtSettings.barCard;
     const barH = Math.min((this.fmtSettings.barCard.barGroup.slices.find(s => s.name === "barHeight") as formattingSettings.NumUpDown)?.value ?? 30, rowH);
     const yOff = (taskFmt.taskHeight.value - barH) / 2;
@@ -831,18 +870,93 @@ export class Visual implements IVisual {
         completion: r.task!.completion
       }));
 
+
+    console.log("ROWKEYS de taskBars:");
+    taskBars.forEach(t => console.log(t.rowKey, t.completion));
+
     const groupBars: BarDatum[] = visibleRows
       .filter(r => r.isGroup)
       .map((r, i) => {
         const { start, end } = this.groupRange.get(r.id)!;
-        return { id: r.id, start, end, rowKey: r.rowKey, isGroup: true, index: i };
+        return {
+          id: r.id,
+          start,
+          end,
+          rowKey: r.rowKey,
+          isGroup: true,
+          index: i,
+          completion: this.getCompletionByGroup(r.rowKey, taskBars) // <- Aca lo llamás
+        };
       });
 
-    const allBars = [...taskBars, ...groupBars];
+
+    const allBars = [...taskBars, ...groupBars].map((bar, i) => ({
+      ...bar,
+      gradientId: `bar-gradient-${i}`
+    }));
+
+
+    // Pegá esto después de crear `this.ganttG`
+    const defs = this.ganttSVG.append("defs");
+    allBars.forEach(d => {
+  if (!(d.start instanceof Date) || !(d.end instanceof Date)) return;
+
+  // 🔎 Obtener key según sea grupo o tarea
+  let key: string | undefined;
+  if (d.rowKey?.startsWith("G:")) {
+    key = d.rowKey.slice(2); // quita "G:"
+  } else if (d.rowKey?.includes("|")) {
+    key = d.rowKey.split("|")[1];
+  }
+
+  console.log("➡️ rowKey:", d.rowKey);
+  console.log("🔍 Buscando parent:", key);
+
+  const dp = this.ganttdataPoints.find(p => p.parent === key);
+
+  console.log("🎯 Resultado de find:", dp);
+
+  const baseColorStr = dp?.color ?? "#72c0ffff";
+  const colorBase = d3.color(baseColorStr);
+  if (!colorBase) {
+    console.warn("❌ No se pudo parsear el color:", baseColorStr);
+    return;
+  }
+
+  const colorClaro = d3.interpolateRgb(colorBase, d3.color("#ffffff"))(0.5);
+
+  const gradient = defs.append("linearGradient")
+    .attr("id", d.gradientId)
+    .attr("x1", "0%")
+    .attr("x2", "100%")
+    .attr("y1", "0%")
+    .attr("y2", "0%");
+
+  const raw = Number(d.completion);
+  const safeCompletion = isNaN(raw) ? 0 : (raw > 1 ? raw / 100 : raw);
+  const completion = Math.max(0, Math.min(1, safeCompletion));
+
+  console.log("📊 Completion:", completion);
+  console.log("🎨 Color base:", baseColorStr, "| Color claro:", colorClaro);
+
+  gradient.append("stop")
+    .attr("offset", `${completion * 100}%`)
+    .attr("stop-color", baseColorStr);
+
+  gradient.append("stop")
+    .attr("offset", `${completion * 100}%`)
+    .attr("stop-color", colorClaro);
+});
+
+
+
+
+
+
 
     if (allBars.length) {
       const bars = this.ganttG.selectAll<SVGElement, BarDatum>(".bar").attr("fill", d => {
-        const dp = this.ganttdataPoints.find(p => p.parent === d.rowKey.split("|")[0]);
+        const dp = this.ganttdataPoints.find(p => p.parent === d.rowKey.split("|")[1]);
         return dp?.color ?? "#000";
       })
         .data(allBars, d => d.id)
@@ -957,17 +1071,14 @@ export class Visual implements IVisual {
         !isNaN(d.end.getTime())
       )
         .attr("d", d => this.getGroupBarPath(x, yScale, d, taskFmt.taskHeight.value, barH))
-        .attr("fill", d => {
-          const key = d.rowKey.split("|")[0].replace(/^[A-Z]:/, "");
-          const dp = this.ganttdataPoints.find(p => p.parent === key);
-          return dp?.color ?? "#72c0ffff";
-        })
+        .attr("fill", d => `url(#${d.gradientId})`)
         .attr("stroke", d => {
           const key = d.rowKey.split("|")[0].replace(/^[A-Z]:/, "");
           const dp = this.ganttdataPoints.find(p => p.parent === key);
           return dp?.color ?? "#72c0ffff";
         })
         .attr("stroke-width", 1);
+
 
       renderDurationLabels({
         svg: this.ganttG,
@@ -1176,7 +1287,7 @@ export class Visual implements IVisual {
     y: d3.ScaleBand<string>,
     barH: number
   ) {
-        const days = d3.timeDays(newX.domain()[0], newX.domain()[1]);
+    const days = d3.timeDays(newX.domain()[0], newX.domain()[1]);
 
     if (this.selectedFormat === "Día") {
       this.ganttG.selectAll<SVGLineElement, Date>("line.day")
@@ -1196,40 +1307,40 @@ export class Visual implements IVisual {
             .attr("x2", d => newX(d)),
           exit => exit.remove()
         );
-        this.ganttG.selectAll<SVGLineElement, Date>("rect.weekend")
-          .data(days.filter(d => d.getDay() === 6)) // sábados
-          .enter()
-          .append("rect")
-          .attr("x", d => newX(d))
-          .attr("y", -10)
-          .attr("width", d => newX(d3.timeDay.offset(d, 2)) - newX(d))
-          .attr("height", innerHeight)
-          .attr("fill", this.fmtSettings.weekendCard.markerColor.value.value)
-          .attr("class", "weekend");
+      this.ganttG.selectAll<SVGLineElement, Date>("rect.weekend")
+        .data(days.filter(d => d.getDay() === 6)) // sábados
+        .enter()
+        .append("rect")
+        .attr("x", d => newX(d))
+        .attr("y", -10)
+        .attr("width", d => newX(d3.timeDay.offset(d, 2)) - newX(d))
+        .attr("height", innerHeight)
+        .attr("fill", this.fmtSettings.weekendCard.markerColor.value.value)
+        .attr("class", "weekend");
 
-          this.ganttG.selectAll("line.day").lower();
-          this.ganttG.selectAll("rect.weekend").lower();
-    }else{
+      this.ganttG.selectAll("line.day").lower();
+      this.ganttG.selectAll("rect.weekend").lower();
+    } else {
       this.ganttG.selectAll("line.day").remove()
       this.ganttG.selectAll("rect.weekend").remove();
     }
 
     if (this.selectedFormat === "Mes") {
-        const months = d3.timeMonths(newX.domain()[0], newX.domain()[1]);
-        this.ganttG.selectAll<SVGLineElement, Date>("line.month")
-          .data(months)
-          .enter()
-          .append("line")
-          .attr("x1", d => newX(d))
-          .attr("x2", d => newX(d))
-          .attr("y1", -10)
-          .attr("y2", innerHeight)
-          .attr("stroke", this.fmtSettings.weekendCard.markerColor.value.value)
-          .attr("stroke-width", 1)
-          .attr("class", "month");
+      const months = d3.timeMonths(newX.domain()[0], newX.domain()[1]);
+      this.ganttG.selectAll<SVGLineElement, Date>("line.month")
+        .data(months)
+        .enter()
+        .append("line")
+        .attr("x1", d => newX(d))
+        .attr("x2", d => newX(d))
+        .attr("y1", -10)
+        .attr("y2", innerHeight)
+        .attr("stroke", this.fmtSettings.weekendCard.markerColor.value.value)
+        .attr("stroke-width", 1)
+        .attr("class", "month");
 
-          this.ganttG.selectAll("line.month").lower();
-      } else { this.ganttG.selectAll("line.month").remove() }
+      this.ganttG.selectAll("line.month").lower();
+    } else { this.ganttG.selectAll("line.month").remove() }
 
     // Redibuja barras estándar
     this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar")

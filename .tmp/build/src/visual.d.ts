@@ -21,6 +21,7 @@ export interface GanttDataPoint {
     color: string;
     selectionId: ISelectionID;
     index: number;
+    completion?: number;
 }
 export declare class Visual implements IVisual {
     private container;
@@ -55,6 +56,7 @@ export declare class Visual implements IVisual {
     private currentZoomTransform?;
     private y;
     private getGroupBarPath;
+    private getCompletionByGroup;
     constructor(opts: VisualConstructorOptions);
     update(opts: VisualUpdateOptions): void;
     private renderLanding;
