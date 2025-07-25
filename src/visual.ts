@@ -224,18 +224,13 @@ export class Visual implements IVisual {
   }
 
   private getCompletionByGroup(rowKey: string, allBars: BarDatum[]): number {
-    const groupId = rowKey.replace(/^G:/, ""); // ej: 'G:LC339' → 'LC339'
+    const groupId = rowKey.replace(/^G:/, "");
 
     const children = allBars.filter(b => {
       if (b.isGroup) return false;
       const parts = b.rowKey.split("|");
       return parts.length === 2 && parts[1] === groupId;
     });
-
-    console.log(`Grupo: ${rowKey}`);
-    console.log(`ID del grupo extraído: ${groupId}`);
-    console.log(`Cantidad de hijos: ${children.length}`);
-    console.log("Completions hijos:", children.map(c => ({ rowKey: c.rowKey, completion: c.completion })));
 
     const completions = children
       .map(c => Number(c.completion))
@@ -248,8 +243,6 @@ export class Visual implements IVisual {
 
     const avg = completions.reduce((a, b) => a + b, 0) / completions.length;
     const boundedAvg = Math.max(0, Math.min(1, avg > 1 ? avg / 100 : avg));
-
-    console.log(`Promedio bruto: ${avg}, Promedio acotado: ${boundedAvg}`);
     return boundedAvg;
   }
 
@@ -636,12 +629,6 @@ export class Visual implements IVisual {
 
     this.ganttSVG.on("wheel", (event: WheelEvent) => {
       event.preventDefault();
-
-      const deltaX = event.deltaY;
-      const current = this.currentZoomTransform ?? d3.zoomIdentity;
-
-      const newTransform = current.translate(-deltaX, 0);
-      this.ganttSVG.call(zoomBehavior.transform, newTransform);
     });
 
 
@@ -870,10 +857,6 @@ export class Visual implements IVisual {
         completion: r.task!.completion
       }));
 
-
-    console.log("ROWKEYS de taskBars:");
-    taskBars.forEach(t => console.log(t.rowKey, t.completion));
-
     const groupBars: BarDatum[] = visibleRows
       .filter(r => r.isGroup)
       .map((r, i) => {
@@ -909,12 +892,7 @@ export class Visual implements IVisual {
     key = d.rowKey.split("|")[1];
   }
 
-  console.log("➡️ rowKey:", d.rowKey);
-  console.log("🔍 Buscando parent:", key);
-
   const dp = this.ganttdataPoints.find(p => p.parent === key);
-
-  console.log("🎯 Resultado de find:", dp);
 
   const baseColorStr = dp?.color ?? "#72c0ffff";
   const colorBase = d3.color(baseColorStr);
@@ -936,8 +914,6 @@ export class Visual implements IVisual {
   const safeCompletion = isNaN(raw) ? 0 : (raw > 1 ? raw / 100 : raw);
   const completion = Math.max(0, Math.min(1, safeCompletion));
 
-  console.log("📊 Completion:", completion);
-  console.log("🎨 Color base:", baseColorStr, "| Color claro:", colorClaro);
 
   gradient.append("stop")
     .attr("offset", `${completion * 100}%`)
@@ -1296,7 +1272,7 @@ export class Visual implements IVisual {
           enter => enter.append("line")
             .attr("class", "day")
             .attr("y1", 0)
-            .attr("y2", innerHeight)
+            .attr("y2", this.y[0])
             .attr("stroke", "#e0e0e0")
             .attr("stroke-width", 1)
             .attr("zindex", "-100")
@@ -1314,7 +1290,7 @@ export class Visual implements IVisual {
         .attr("x", d => newX(d))
         .attr("y", -10)
         .attr("width", d => newX(d3.timeDay.offset(d, 2)) - newX(d))
-        .attr("height", innerHeight)
+        .attr("height", this.y.range()[1])
         .attr("fill", this.fmtSettings.weekendCard.markerColor.value.value)
         .attr("class", "weekend");
 
@@ -1334,7 +1310,7 @@ export class Visual implements IVisual {
         .attr("x1", d => newX(d))
         .attr("x2", d => newX(d))
         .attr("y1", -10)
-        .attr("y2", innerHeight)
+        .attr("y2", this.y.range()[1])
         .attr("stroke", this.fmtSettings.weekendCard.markerColor.value.value)
         .attr("stroke-width", 1)
         .attr("class", "month");
