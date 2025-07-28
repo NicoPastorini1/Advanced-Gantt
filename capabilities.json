@@ -298,6 +298,52 @@
         }
       }
     },
+    "completionStyleGroup": {
+      "displayName": "Etiqueta de completado",
+      "properties": {
+        "fontFamily": {
+          "displayName": "Fuente",
+          "type": {
+            "formatting": {
+              "fontFamily": true
+            }
+          }
+        },
+        "fontSize": {
+          "displayName": "Tamaño",
+          "type": {
+            "formatting": {
+              "fontSize": true
+            }
+          }
+        },
+        "fontColor": {
+          "displayName": "Color",
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "bold": {
+          "type": {
+            "bool": true
+          }
+        },
+        "italic": {
+          "type": {
+            "bool": true
+          }
+        },
+        "underline": {
+          "type": {
+            "bool": true
+          }
+        }
+      }
+    },
     "weekendCard": {"displayName": "Marcador fin de semanas", "properties": {"show": {"type": {"bool": true}}, "markerColor":{"type": {"fill": {"solid": {"color": true}}}}}},
     "barCard": {
       "displayName": "Barras",

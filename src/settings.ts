@@ -346,6 +346,57 @@ class WeekendCardSettings extends SimpleCard{
         displayName = "Weekend";
         slices: formattingSettings.Slice[] = [this.show, this.markerColor]
     }
+/* ______________________
+      Completion Label
+____________________*/
+class completionCardSettings extends SimpleCard {
+    name: string = "completionStyleGroup";
+    displayName: string = "Etiqueta";
+
+    public fontFamily: FontPicker = new FontPicker({
+        name: "fontFamily",
+        value: "Arial, sans-serif"
+    });
+
+    public fontSize: NumUpDown = new NumUpDown({
+        name: "fontSize",
+        value: 15
+    });
+
+    public bold: ToggleSwitch = new ToggleSwitch({
+        name: "bold",
+        value: false
+    });
+
+    public italic: ToggleSwitch = new ToggleSwitch({
+        name: "italic",
+        value: false
+    });
+
+    public underline: ToggleSwitch = new ToggleSwitch({
+        name: "underline",
+        value: false
+    });
+
+    public fontColor: ColorPicker = new ColorPicker({
+        name: "fontColor",
+        value: { value: "#ffffffff" },
+        displayName: "Color de fuente"
+    });
+
+    public font: FontControl = new FontControl({
+        name: "font",
+        displayName: "Fuente",
+        fontFamily: this.fontFamily,
+        fontSize: this.fontSize,
+        bold: this.bold,
+        italic: this.italic,
+        underline: this.underline
+    });
+
+
+    public slices: formattingSettings.Slice[] = [this.font];
+}
 
 class adminSettings extends SimpleCard {
 
@@ -411,6 +462,7 @@ export class VisualFormattingSettingsModel extends Model {
     adminCard = new adminSettings();
     colorSelector = new ColorSelectorCardSettings();
     weekendCard = new WeekendCardSettings();
+    completionCard = new completionCardSettings();
 
     cards: Card[] = [
         this.axisXCard,
@@ -421,7 +473,8 @@ export class VisualFormattingSettingsModel extends Model {
         this.parentCard,
         this.adminCard,
         this.colorSelector,
-        this.weekendCard
+        this.weekendCard,
+        this.completionCard
     ];
 
     populateColorSelector(dataPoints: GanttDataPoint[]) {

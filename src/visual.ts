@@ -492,13 +492,16 @@ export class Visual implements IVisual {
     if (xStart >= xEnd) xEnd = new Date(xStart.getTime() + 3_600_000);
 
     let innerW = 0;
-    switch (this.selectedFormat) {
+    const diffInDays = d3.timeDay.count(xStart, xEnd);
+    const effectiveFormat = this.updateSelectedFormatFromZoom(diffInDays);
+
+    switch (effectiveFormat) {
       case "Hora":
         const numHours = d3.timeHour.count(xStart, xEnd);
         innerW = Math.max(numHours * 38, width - margin.left - margin.right);
         break;
       case "Día":
-        const numDays = d3.timeDay.count(xStart, xEnd);
+        const numDays = diffInDays;
         innerW = Math.max(numDays * 38, width - margin.left - margin.right);
         break;
       case "Mes":
@@ -510,8 +513,7 @@ export class Visual implements IVisual {
         innerW = Math.max(numYears * 15, width - margin.left - margin.right);
         break;
       case "Todo":
-        const allDays = d3.timeDay.count(xStart, xEnd);
-        innerW = Math.max(allDays * 38, width - margin.left - margin.right);
+        innerW = Math.max(diffInDays * 38, width - margin.left - margin.right);
         break;
       default:
         innerW = width - margin.left - margin.right;
@@ -560,28 +562,18 @@ export class Visual implements IVisual {
     const gridYPos = visibleRows.map(r => this.y(r.rowKey)!);
 
 
+    const extentBuffer = 2000;
 
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.35, 100])
-      .translateExtent([[0, 0], [innerW, height]])
-      .filter((event) => event.type !== "dblclick")
+      .translateExtent([[-extentBuffer, 0], [innerW + extentBuffer, 0]])
       .on("zoom", (event) => {
         let t = event.transform;
 
         // Escala resultante con transform actual
         let newX = t.rescaleX(xOriginal);
-        let minDate = new Date("2023-01-01");
+        let minDate = new Date("2021-01-01");
         let maxDate = new Date("2026-12-31");
-
-        // Clamping basado en dominio
-        if (minDate < minDate) {
-          const offset = xOriginal(minDate) - xOriginal(minDate);
-          t = t.translate(offset, 0);
-        }
-        if (maxDate > maxDate) {
-          const offset = xOriginal(maxDate) - xOriginal(maxDate);
-          t = t.translate(offset, 0);
-        }
 
         // Recalcular con transform corregido
         this.currentZoomTransform = t;
@@ -615,22 +607,14 @@ export class Visual implements IVisual {
           translateX: margin.left,
           fmtSettings: this.fmtSettings
         });
+
       });
 
     this.ganttSVG.call(zoomBehavior);
 
-
-
-
-    this.ganttSVG.on("dblclick", () => {
-      const t = d3.zoomIdentity; // escala 1:1, sin desplazamiento
-      this.ganttSVG.transition().duration(500).call(zoomBehavior.transform, t);
-    });
-
     this.ganttSVG.on("wheel", (event: WheelEvent) => {
       event.preventDefault();
     });
-
 
     if (headFmt.show.value) {
       const header = yAxisContentG.append("g")
@@ -868,7 +852,18 @@ export class Visual implements IVisual {
           rowKey: r.rowKey,
           isGroup: true,
           index: i,
-          completion: this.getCompletionByGroup(r.rowKey, taskBars) // <- Aca lo llamás
+          completion: this.getCompletionByGroup(
+            r.rowKey,
+            this.cacheTasks.map((t, j) => ({
+              id: t.id,
+              start: t.start,
+              end: t.end,
+              rowKey: `T:${t.id}|${t.parent}`,
+              isGroup: false,
+              index: j,
+              completion: t.completion
+            }))
+          )
         };
       });
 
@@ -879,50 +874,45 @@ export class Visual implements IVisual {
     }));
 
 
-    // Pegá esto después de crear `this.ganttG`
     const defs = this.ganttSVG.append("defs");
     allBars.forEach(d => {
-  if (!(d.start instanceof Date) || !(d.end instanceof Date)) return;
+      if (!(d.start instanceof Date) || !(d.end instanceof Date)) return;
 
-  // 🔎 Obtener key según sea grupo o tarea
-  let key: string | undefined;
-  if (d.rowKey?.startsWith("G:")) {
-    key = d.rowKey.slice(2); // quita "G:"
-  } else if (d.rowKey?.includes("|")) {
-    key = d.rowKey.split("|")[1];
-  }
+      // 🔎 Obtener key según sea grupo o tarea
+      let key: string | undefined;
+      if (d.rowKey?.startsWith("G:")) {
+        key = d.rowKey.slice(2); // quita "G:"
+      } else if (d.rowKey?.includes("|")) {
+        key = d.rowKey.split("|")[1];
+      }
 
-  const dp = this.ganttdataPoints.find(p => p.parent === key);
+      const dp = this.ganttdataPoints.find(p => p.parent === key);
 
-  const baseColorStr = dp?.color ?? "#72c0ffff";
-  const colorBase = d3.color(baseColorStr);
-  if (!colorBase) {
-    console.warn("❌ No se pudo parsear el color:", baseColorStr);
-    return;
-  }
+      const baseColorStr = dp?.color ?? "#72c0ffff";
+      const colorBase = d3.color(baseColorStr);
 
-  const colorClaro = d3.interpolateRgb(colorBase, d3.color("#ffffff"))(0.5);
+      const colorClaro = d3.interpolateRgb(colorBase, d3.color("#ffffff"))(0.5);
 
-  const gradient = defs.append("linearGradient")
-    .attr("id", d.gradientId)
-    .attr("x1", "0%")
-    .attr("x2", "100%")
-    .attr("y1", "0%")
-    .attr("y2", "0%");
+      const gradient = defs.append("linearGradient")
+        .attr("id", d.gradientId)
+        .attr("x1", "0%")
+        .attr("x2", "100%")
+        .attr("y1", "0%")
+        .attr("y2", "0%");
 
-  const raw = Number(d.completion);
-  const safeCompletion = isNaN(raw) ? 0 : (raw > 1 ? raw / 100 : raw);
-  const completion = Math.max(0, Math.min(1, safeCompletion));
+      const raw = Number(d.completion);
+      const safeCompletion = isNaN(raw) ? 0 : (raw > 1 ? raw / 100 : raw);
+      const completion = Math.max(0, Math.min(1, safeCompletion));
 
 
-  gradient.append("stop")
-    .attr("offset", `${completion * 100}%`)
-    .attr("stop-color", baseColorStr);
+      gradient.append("stop")
+        .attr("offset", `${completion * 100}%`)
+        .attr("stop-color", baseColorStr);
 
-  gradient.append("stop")
-    .attr("offset", `${completion * 100}%`)
-    .attr("stop-color", colorClaro);
-});
+      gradient.append("stop")
+        .attr("offset", `${completion * 100}%`)
+        .attr("stop-color", colorClaro);
+    });
 
 
 
@@ -1005,6 +995,7 @@ export class Visual implements IVisual {
         .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
         .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value);
       // (STD) COMPLETADO
+      
       this.ganttG.selectAll<SVGTextElement, BarDatum>(".completion-label")
         .data(allBars.filter(d =>
           !d.isGroup &&
@@ -1032,9 +1023,9 @@ export class Visual implements IVisual {
           return start + width * pct - 6;
         })
         .attr("y", d => yScale(d.rowKey)! + yOff + barH / 2 + 4)
-        .attr("fill", "#ffffff")
-        .attr("font-size", this.fmtSettings.barCard.labelGroup.fontSize.value)
-        .attr("font-family", "DIN")
+        .attr("fill", this.fmtSettings.completionCard.fontColor.value.value)
+        .attr("font-size", this.fmtSettings.completionCard.fontSize.value)
+        .attr("font-family", this.fmtSettings.completionCard.fontFamily.value)
         .attr("text-anchor", "start")
         .attr("dominant-baseline", "middle");
 
@@ -1320,7 +1311,7 @@ export class Visual implements IVisual {
 
     // Redibuja barras estándar
     this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar")
-      .filter(d => !d.isGroup)
+      .filter(d => d.start instanceof Date && d.end instanceof Date)
       .attr("x", d => {
         if (!(d.start instanceof Date) || isNaN(d.start.getTime())) return -9999;
         return newX(d.start);

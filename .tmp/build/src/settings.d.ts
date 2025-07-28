@@ -90,6 +90,18 @@ declare class WeekendCardSettings extends SimpleCard {
     displayName: string;
     slices: formattingSettings.Slice[];
 }
+declare class completionCardSettings extends SimpleCard {
+    name: string;
+    displayName: string;
+    fontFamily: FontPicker;
+    fontSize: NumUpDown;
+    bold: ToggleSwitch;
+    italic: ToggleSwitch;
+    underline: ToggleSwitch;
+    fontColor: ColorPicker;
+    font: FontControl;
+    slices: formattingSettings.Slice[];
+}
 declare class adminSettings extends SimpleCard {
     Alto: formattingSettings.NumUpDown;
     Ancho: formattingSettings.NumUpDown;
@@ -112,6 +124,7 @@ export declare class VisualFormattingSettingsModel extends Model {
     adminCard: adminSettings;
     colorSelector: ColorSelectorCardSettings;
     weekendCard: WeekendCardSettings;
+    completionCard: completionCardSettings;
     cards: Card[];
     populateColorSelector(dataPoints: GanttDataPoint[]): void;
 }
