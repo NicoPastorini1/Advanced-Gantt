@@ -72,14 +72,6 @@ const enum GanttObjectNames {
   ColorSelector = "colorSelector"
 }
 
-const colorSelectorReferences: References = {
-  cardUid: "Visual-colorSelector-card",
-  groupUid: "colorSelector-group",
-  fill: {
-    objectName: GanttObjectNames.ColorSelector,
-    propertyName: "fill"
-  }
-};
 
 export interface GanttDataPoint {
   task: string;
@@ -1039,75 +1031,75 @@ export class Visual implements IVisual {
 
 
     if (allBars.length) {
-  const bars = this.ganttG.selectAll<SVGElement, BarDatum>(".bar")
-    .attr("fill", d => {
-      const dp = this.ganttdataPoints.find(p => p.parent === d.rowKey.split("|")[1]);
-      return dp?.color ?? "#000";
-    })
-    .data(allBars, d => d.id)
-    .join(
-      enter => enter.append(d =>
-        document.createElementNS("http://www.w3.org/2000/svg", d.isGroup ? "path" : "rect")
-      ).attr("class", "bar"),
-      update => update,
-      exit => exit.remove()
-    );
+      const bars = this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar, .bar-secondary")
+        .attr("fill", d => {
+          const dp = this.ganttdataPoints.find(p => p.parent === d.rowKey.split("|")[1]);
+          return dp?.color ?? "#000";
+        })
+        .data(allBars, d => d.id)
+        .join(
+          enter => enter.append(d =>
+            document.createElementNS("http://www.w3.org/2000/svg", d.isGroup ? "path" : "rect")
+          ).attr("class", "bar"),
+          update => update,
+          exit => exit.remove()
+        );
 
-  // === HIJOS (tareas) ===
-  bars.filter(d =>
-    !d.isGroup &&
-    d.start instanceof Date && !isNaN(d.start.getTime()) &&
-    d.end instanceof Date && !isNaN(d.end.getTime())
-  )
-    .attr("x", d => x(d.start))
-    .attr("y", d => yScale(d.rowKey)! + yOff)
-    .attr("width", d => x(d.end) - x(d.start))
-    .attr("height", this.barH)
-    .attr("fill", d => {
-      const key = d.rowKey.split("|")[1];
-      const dp = this.ganttdataPoints.find(p => p.parent === key);
-      const baseColor = d3.color(dp?.color ?? "#72c0ffff");
-      return baseColor ? d3.interpolateRgb(baseColor, d3.color("#ffffff"))(0.50) : "#cccccc";
-    })
-    .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
-    .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
-    .attr("stroke", d => {
-      const key = d.rowKey.split("|")[1];
-      const dp = this.ganttdataPoints.find(p => p.parent === key);
-      return dp?.color ?? "#72c0ffff";
-    })
-    .attr("stroke-width", (barCfg.barGroup.slices.find(s => s.name === "strokeWidth") as formattingSettings.Slider).value)
-    .on("mouseover", (event, d: BarDatum) => {
-      const strokeColor = d3.select(event.currentTarget).attr("stroke");
-      d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", strokeColor);
-    })
-    .on("mouseout", (event, d: BarDatum) => {
-      d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", taskFmt.fontColor.value.value);
-    });
+      // === HIJOS (tareas) ===
+      bars.filter(d =>
+        !d.isGroup &&
+        d.start instanceof Date && !isNaN(d.start.getTime()) &&
+        d.end instanceof Date && !isNaN(d.end.getTime())
+      )
+        .attr("x", d => x(d.start))
+        .attr("y", d => yScale(d.rowKey)! + yOff)
+        .attr("width", d => x(d.end) - x(d.start))
+        .attr("height", this.barH)
+        .attr("fill", d => {
+          const key = d.rowKey.split("|")[1];
+          const dp = this.ganttdataPoints.find(p => p.parent === key);
+          const baseColor = d3.color(dp?.color ?? "#72c0ffff");
+          return baseColor ? d3.interpolateRgb(baseColor, d3.color("#ffffff"))(0.50) : "#cccccc";
+        })
+        .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
+        .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
+        .attr("stroke", d => {
+          const key = d.rowKey.split("|")[1];
+          const dp = this.ganttdataPoints.find(p => p.parent === key);
+          return dp?.color ?? "#72c0ffff";
+        })
+        .attr("stroke-width", (barCfg.barGroup.slices.find(s => s.name === "strokeWidth") as formattingSettings.Slider).value)
+        .on("mouseover", (event, d: BarDatum) => {
+          const strokeColor = d3.select(event.currentTarget).attr("stroke");
+          d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", strokeColor);
+        })
+        .on("mouseout", (event, d: BarDatum) => {
+          d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", taskFmt.fontColor.value.value);
+        });
 
-  // === PADRES (grupos) ===
-  // === PADRES (grupos) ===
-bars.filter(d =>
-  d.isGroup &&
-  d.start instanceof Date && !isNaN(d.start.getTime()) &&
-  d.end instanceof Date && !isNaN(d.end.getTime())
-)
-  .attr("d", d => this.getGroupBarPath(x, yScale, d, taskFmt.taskHeight.value, this.barH))
-  .attr("fill", d => `url(#${d.gradientId})`)
-  .attr("stroke", d => {
-    const key = d.rowKey.split("|")[0].replace(/^[A-Z]:/, "");
-    const dp = this.ganttdataPoints.find(p => p.parent === key);
-    return dp?.color ?? "#72c0ffff";
-  })
-  .attr("stroke-width", 1)
-  .on("mouseover", (event, d: BarDatum) => {
-    const strokeColor = d3.select(event.currentTarget).attr("stroke");
-    // 🔑 esto pinta SOLO el texto del padre
-    d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", strokeColor);
-  })
-  .on("mouseout", (event, d: BarDatum) => {
-    d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", parFmt.fontColor.value.value);
-  });
+      // === PADRES (grupos) ===
+      // === PADRES (grupos) ===
+      bars.filter(d =>
+        d.isGroup &&
+        d.start instanceof Date && !isNaN(d.start.getTime()) &&
+        d.end instanceof Date && !isNaN(d.end.getTime())
+      )
+        .attr("d", d => this.getGroupBarPath(x, yScale, d, taskFmt.taskHeight.value, this.barH))
+        .attr("fill", d => `url(#${d.gradientId})`)
+        .attr("stroke", d => {
+          const key = d.rowKey.split("|")[0].replace(/^[A-Z]:/, "");
+          const dp = this.ganttdataPoints.find(p => p.parent === key);
+          return dp?.color ?? "#72c0ffff";
+        })
+        .attr("stroke-width", 1)
+        .on("mouseover", (event, d: BarDatum) => {
+          const strokeColor = d3.select(event.currentTarget).attr("stroke");
+          // 🔑 esto pinta SOLO el texto del padre
+          d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", strokeColor);
+        })
+        .on("mouseout", (event, d: BarDatum) => {
+          d3.selectAll(`text[data-rowKey="${d.rowKey}"]`).attr("fill", parFmt.fontColor.value.value);
+        });
 
 
       this.ganttG.selectAll<SVGRectElement, BarDatum>(".completion-bar")
@@ -1272,46 +1264,48 @@ bars.filter(d =>
 
       const tooltipValues = dv.categorical.values.filter(val => val.source.roles && val.source.roles['tooltips']);
 
-      this.tooltipServiceWrapper.addTooltip<BarDatum>(
-        bars,
-        (d: BarDatum) => {
+      const tooltipTargets = this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar, .bar-secondary");
 
-          let taskName = "";
-          let parentName = "";
+this.tooltipServiceWrapper.addTooltip<BarDatum>(
+  tooltipTargets,
+  (d: BarDatum) => {
+    let taskName = "";
+    let parentName = "";
 
-          if (d.isGroup) {
-            parentName = (d.rowKey || "").replace(/^G:/, "");
-          } else {
-            const [taskRaw, parentRaw] = (d.rowKey || "").split("|");
-            taskName = (taskRaw || "").replace(/^T:/, "").replace(/^G:/, "");
-            parentName = (parentRaw || "").replace(/^T:/, "").replace(/^G:/, "");
-          }
+    if (d.isGroup) {
+      parentName = (d.rowKey || "").replace(/^G:/, "");
+    } else {
+      const [taskRaw, parentRaw] = (d.rowKey || "").split("|");
+      taskName = (taskRaw || "").replace(/^T:/, "").replace(/^G:/, "");
+      parentName = (parentRaw || "").replace(/^T:/, "").replace(/^G:/, "");
+    }
 
-          const tooltipItems: { displayName: string; value: string }[] = [
-            { displayName: "Parent", value: parentName },
-            ...(taskName ? [{ displayName: "Task", value: taskName }] : []),
-            { displayName: "Inicio P", value: d.start.toLocaleString() },
-            { displayName: "Fin P", value: d.end.toLocaleString() },
-          ];
+    const tooltipItems: { displayName: string; value: string }[] = [
+      { displayName: "Parent", value: parentName },
+      ...(taskName ? [{ displayName: "Task", value: taskName }] : []),
+      { displayName: "Inicio P", value: d.start.toLocaleString() },
+      { displayName: "Fin P", value: d.end.toLocaleString() },
+    ];
 
-          const c = Number(d.completion);
-          if (Number.isFinite(c) && c !== 0) {
-            const pct = c > 1 ? c : c * 100;
-            tooltipItems.push({ displayName: "Completado", value: `${Math.round(pct)}%` });
-          }
+    const c = Number(d.completion);
+    if (Number.isFinite(c) && c !== 0) {
+      const pct = c > 1 ? c : c * 100;
+      tooltipItems.push({ displayName: "Completado", value: `${Math.round(pct)}%` });
+    }
 
-          tooltipValues.forEach(val => {
-            const v = val.values[d.index];
-            tooltipItems.push({
-              displayName: val.source.displayName,
-              value: (v !== undefined && v !== null) ? String(v) : ""
-            });
-          });
+    tooltipValues.forEach(val => {
+      const v = val.values[d.index];
+      tooltipItems.push({
+        displayName: val.source.displayName,
+        value: (v !== undefined && v !== null) ? String(v) : ""
+      });
+    });
 
-          return tooltipItems;
-        },
-        (d: BarDatum) => d.selectionId
-      );
+    return tooltipItems;
+  },
+  (d: BarDatum) => d.selectionId
+);
+
     }
 
     const depLines: {
