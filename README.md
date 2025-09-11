@@ -1,76 +1,112 @@
-# Power BI Gantt Custom Visual
+# Power BI Custom Gantt Visual
 
-Visual personalizado de diagrama de Gantt desarrollado para Power BI, con funcionalidades avanzadas de interacción, visualización jerárquica y control temporal.
+Un visual personalizado de **Gantt** para Power BI, desarrollado en **TypeScript + D3.js**, que ofrece un alto nivel de personalización y control sobre escalas temporales, jerarquías y estilos.
+
+---
 
 ## 🚀 Características principales
 
-- Ejes X **superior e inferior sincronizados**, con formatos dinámicos (hora, día, mes, año).
-- **Zoom con rueda del mouse**, con cambio automático de formato temporal.
-- **Scroll vertical y horizontal** con soporte de pan.
-- Soporte para jerarquías **padre-hijo** con expansión y colapso.
-- Renderizado de:
-  - Tareas individuales
-  - Grupos de tareas (barra trapezoidal)
-  - Barras de duración y porcentaje de avance
-  - Días de fin de semana con color personalizado
-  - Líneas divisorias por día, mes y año
-- Ejes X fijos, que permanecen visibles durante el scroll.
-- Opciones de formato desde el **format pane** de Power BI:
-  - Tipografía
-  - Colores por grupo
-  - Tamaños y estilos de barra
-  - Formato de fechas
-- Compatibilidad completa con Power BI (`pbiviz`) y `TypeScript + D3.js`.
+- **Escala temporal dinámica**  
+  - Zoom y pan horizontales con `d3.zoom`.  
+  - Formato automático de ejes según nivel de detalle (`Hora`, `Día`, `Mes`, `Año`, `Todo`).  
+  - Doble eje X fijo (superior e inferior).  
 
-## 📷 Capturas
+- **Filas y jerarquía**  
+  - Soporte para **grupos y tareas hijas** (expandir/colapsar).  
+  - Columna fija izquierda con nombres, fechas y duración.  
+  - Alineación con scroll vertical sincronizado.  
 
-_📌 Agregá aquí imágenes del gráfico funcionando (opcional)_
+- **Barras de tareas y grupos**  
+  - Renderizado de barras rectangulares y trapezoidales para grupos.  
+  - Barra secundaria (inicio/fin alternativo).  
+  - Colores configurables por grupo/parent.  
+  - Barra de progreso interno (`completion`).  
 
-## 🛠️ Tecnologías
+- **Interacción**  
+  - Zoom con rueda del mouse.  
+  - Pan mediante arrastre.  
+  - Doble click para resetear vista.  
+  - Tooltip dinámico con campos personalizados.  
 
-- Power BI Custom Visuals (`pbiviz`)
-- D3.js (v7)
-- TypeScript
-- SVG y HTML dinámico
-- Formato `visual.ts` y `settings.ts` desacoplado
+- **Extras visuales**  
+  - Línea vertical de **Hoy** con etiqueta.  
+  - Marcadores de fin de semana.  
+  - Líneas de dependencia entre tareas.  
+  - Etiquetas de duración y porcentaje completado.  
 
-## 📦 Estructura del Proyecto
+---
+
+## 🛠️ Tecnologías utilizadas
+
+- [Power BI Custom Visuals SDK](https://learn.microsoft.com/es-es/power-bi/developer/visuals/)  
+- [D3.js](https://d3js.org/)  
+- TypeScript  
+- LESS (estilos)  
+
+---
+
+## 📂 Estructura principal
 
 ```
-/src
-├── visual.ts          # Lógica principal de renderizado y eventos
-├── settings.ts        # Configuración del panel de formato
-├── barCompletion.ts   # Lógica de barra de completado
-├── assets/            # Imágenes y estilos
-/gantt-custom-visual.pbiviz.json
+src/
+ ├── components/
+ │    ├── xAxis/          # Renderizado de ejes X (superior/inferior)
+ │    ├── formatButtons/  # Botones de cambio de escala temporal
+ │    └── parentButtons/  # Botones expandir/colapsar grupos
+ ├── utils/
+ │    └── renderLabels.ts # Renderizado de etiquetas de duración
+ ├── settings.ts          # Configuración de panel de formato
+ ├── visual.ts            # Lógica principal del gráfico
+ └── style/visual.less    # Estilos personalizados
 ```
 
-## 📈 Cómo compilar
+---
 
-1. Instalá Power BI tools:
+## 📸 Ejemplo
+
+> <img width="1196" height="576" alt="image" src="https://github.com/user-attachments/assets/2ba7ce39-8a81-4c6b-8887-ee49c3d4a292" />
+
+
+---
+
+## ⚙️ Instalación y uso
+
+1. Clonar el repositorio:  
    ```bash
-   npm install -g powerbi-visuals-tools
+   git clone https://github.com/<usuario>/<repo>.git
+   cd <repo>
    ```
-2. Instalá dependencias:
+
+2. Instalar dependencias:  
    ```bash
    npm install
    ```
-3. Ejecutá el servidor local:
+
+3. Ejecutar en modo desarrollo:  
    ```bash
    pbiviz start
    ```
-4. Exportá el visual:
+
+4. Empaquetar para producción:  
    ```bash
    pbiviz package
    ```
 
-## 📄 Licencia
-
-Este proyecto está desarrollado con fines educativos y profesionales internos. Se puede adaptar y reutilizar respetando la estructura original y dando crédito al autor.
+5. Importar el `.pbiviz` resultante en Power BI.
 
 ---
 
-### ✍️ Autor
+## 📌 Roadmap
 
-**Nico Pastorini**  
-Ingeniero de Datos | Backend Developer | Power BI Specialist 
+- [ ] Ajustes de rendimiento en eventos de scroll.  
+- [ ] Mejorar renderizado de dependencias con curvas.  
+- [ ] Opciones avanzadas de estilo de barra en el format pane.  
+- [ ] Exportar a imagen/PNG desde el visual.  
+
+---
+
+## 👤 Autor
+
+Desarrollado por **Nicolás Pastorini**  
+📍 Buenos Aires, Argentina  
+🔗 [LinkedIn](https://linkedin.com/in/nicolas-pastorini)  
