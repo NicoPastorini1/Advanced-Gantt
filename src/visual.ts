@@ -39,6 +39,7 @@ interface Task {
   secondaryEnd?: Date;
   predecessor?: string;
   index: number;
+  extraCols?: string[];   // 👈 NUEVO: valores de Columns
 }
 
 interface VisualRow {
@@ -48,6 +49,7 @@ interface VisualRow {
   rowKey: string;
   labelY: string;
   duration?: number;
+  extraCols?: string[];   // 👈 para pintar también en filas de grupo
 }
 
 interface References {
@@ -205,6 +207,9 @@ export class Visual implements IVisual {
   private barH: number = 40;
   private zoomBehavior!: d3.ZoomBehavior<SVGSVGElement, unknown>;
   private baseDomain?: [Date, Date];
+  private extraColNames: string[] = [];
+  private secondaryStartName: string = "Inicio R";
+  private secondaryEndName: string = "Fin R";
 
 
 
@@ -504,87 +509,74 @@ export class Visual implements IVisual {
     this.rightBtns.style("display", hasData ? "block" : "none");
     const pad = 10;
 
-    const hasD = this.cacheTasks.some(t => t.fields.length > this.taskColCount);
-    const totalCols = 2 + this.taskColCount + (hasD ? 1 : 0);
+const tasks = this.parseData(dv);
+if (tasks.length) this.cacheTasks = tasks;
 
-    const colWidths: number[] = [];
+const hasD = this.cacheTasks.some(t => t.fields.length > this.taskColCount);
+const extraColCount = this.cacheTasks[0]?.extraCols?.length ?? 0;
 
-    // Columna de la tarea
-    colWidths.push(this.fmtSettings.taskCard.taskWidth.value); // Tarea
+const colWidths: number[] = [];
+colWidths.push(this.fmtSettings.taskCard.taskWidth.value);
+colWidths.push(this.fmtSettings.taskCard.startWidth.value);
+colWidths.push(this.fmtSettings.taskCard.endWidth.value);
 
-    // Columna Inicio P
-    colWidths.push(this.fmtSettings.taskCard.startWidth.value); // Inicio P
+for (let i = 0; i < extraColCount; i++) {
+  colWidths.push(150);
+}
 
-    // Si tenés columnas extra (campos de la tarea)
-    for (let i = 0; i < this.taskColCount - 2; i++) {
-      colWidths.push(180); // personalizable
-    }
+if (this.fmtSettings.taskCard.showSecondaryColumns.value) {
+  colWidths.push(this.fmtSettings.taskCard.startWidth.value);
+  colWidths.push(this.fmtSettings.taskCard.endWidth.value);
+}
 
-    // Columna Fin P
-    colWidths.push(this.fmtSettings.taskCard.endWidth.value); // Fin P
+if (hasD) {
+  colWidths.push(100);
+}
 
-    // 🔹 Nueva columna Inicio R
-    colWidths.push(this.fmtSettings.taskCard.startWidth.value); // Inicio R
+this.width = opts.viewport.width;
+this.marginLeft = pad + colWidths.reduce((acc, w) => acc + w, 0);
 
-    // 🔹 Nueva columna Fin R
-    colWidths.push(this.fmtSettings.taskCard.endWidth.value);   // Fin R
+const margin = {
+  top: 60,
+  right: 20,
+  bottom: 60,
+  left: this.marginLeft
+};
 
-    // Duración (si existe)
-    if (hasD) {
-      colWidths.push(100); // Duración
-    }
+this.yAxisSVG.selectAll("*").remove();
+this.ganttSVG.selectAll("*").remove();
+this.xAxisFixedG.selectAll("*").remove();
+
+if (!hasData) {
+  this.landingG = this.ganttSVG.append("g")
+    .attr("class", "landing")
+    .style("pointer-events", "none");
+  this.ganttSVG
+    .attr("width", width)
+    .attr("height", height);
+  this.yAxisSVG.attr("display", "none")
+    .attr("width", margin.left)
+    .attr("height", height);
+  this.xAxisFixedDiv.style("display", "none");
+  this.xAxisFixedSVG.style("display", "none");
+  this.xAxisFixedG.style("display", "none");
+  this.renderLanding(width, height);
+  return;
+}
+this.xAxisFixedDiv.style("display", null);
+this.xAxisFixedSVG.style("display", null);
+this.xAxisFixedG.style("display", null);
+this.yAxisSVG.attr("display", null);
+this.landingG.attr("display", "none");
+
+const expCache = new Map(this.expanded);
+const { visibleRows, expanded } = this.buildRows(this.cacheTasks, expCache);
+this.expanded = expanded;
+
+const rowH = this.fmtSettings.taskCard.taskHeight.value;
+const innerH = rowH * visibleRows.length;
 
 
-
-    this.width = opts.viewport.width;
-    this.marginLeft = pad + colWidths.reduce((acc, w) => acc + w, 0);
-
-    const margin = {
-      top: 60,
-      right: 20,
-      bottom: 60,
-      left: this.marginLeft
-    };
-
-
-    this.yAxisSVG.selectAll("*").remove();
-    this.ganttSVG.selectAll("*").remove();
-    this.xAxisFixedG.selectAll("*").remove();
-
-    if (!hasData) {
-      this.landingG = this.ganttSVG.append("g")
-        .attr("class", "landing")
-        .style("pointer-events", "none");
-      this.ganttSVG
-        .attr("width", width)
-        .attr("height", height);
-      this.yAxisSVG.attr("display", "none")
-        .attr("width", margin.left)
-        .attr("height", height);
-      this.xAxisFixedDiv.style("display", "none");
-      this.xAxisFixedSVG.style("display", "none");
-      this.xAxisFixedG.style("display", "none");
-      this.renderLanding(width, height);
-      return;
-    }
-    this.xAxisFixedDiv.style("display", null);
-    this.xAxisFixedSVG.style("display", null);
-    this.xAxisFixedG.style("display", null);
-    this.yAxisSVG.attr("display", null);
-    this.landingG.attr("display", "none");
-
-    const expCache = new Map(this.expanded);
-
-    const tasks = this.parseData(dv);
-    if (tasks.length) this.cacheTasks = tasks;
-    const { visibleRows, expanded } = this.buildRows(this.cacheTasks, expCache);
-    this.expanded = expanded;
-
-    const rowH = this.fmtSettings.taskCard.taskHeight.value;
-    const innerH = rowH * visibleRows.length;
-
-    // ✅ Por esto
-    // calcular ancho interno en base al dominio actual
     this.innerW = this.computeInnerW(
       this.selectedFormat,
       d3.min(this.cacheTasks, d => d.start)!,
@@ -594,11 +586,10 @@ export class Visual implements IVisual {
     );
     let x: d3.ScaleTime<number, number>;
 
-    // dominio base fijo, solo se calcula una vez
     if (!this.baseDomain) {
       const minDate = d3.min(this.cacheTasks, d => d.start)!;
       const maxDate = d3.max(this.cacheTasks, d => d.end)!;
-      const buffer = 365; // margen opcional
+      const buffer = 365;
 
       this.baseDomain = [
         d3.timeDay.offset(minDate, -buffer),
@@ -606,16 +597,14 @@ export class Visual implements IVisual {
       ];
     }
 
-    // escala original siempre basada en baseDomain
     if (!this.xOriginal) {
       this.xOriginal = d3.scaleTime()
         .domain(this.baseDomain)
         .range([0, this.innerW]);
     } else {
-      this.xOriginal.range([0, this.innerW]); // 👈 nunca tocar el dominio
+      this.xOriginal.range([0, this.innerW]);
     }
 
-    // aplicar zoom actual si existe
     x = this.currentZoomTransform
       ? this.currentZoomTransform.rescaleX(this.xOriginal)
       : this.xOriginal.copy();
@@ -729,7 +718,7 @@ export class Visual implements IVisual {
 
         // animación suave al transform destino
         this.ganttSVG.transition()
-          .duration(500) // ⏱ 0.75 segundos (ajustable)
+          .duration(500) // 0.50 segundos (ajustable)
           .call(this.zoomBehavior.transform, targetTransform);
         this.selectedFormat = "Año";
         this.updateFormatButtonsUI(this.selectedFormat);
@@ -780,95 +769,126 @@ export class Visual implements IVisual {
       event.preventDefault();
     });
 
-    if (headFmt.show.value) {
-      const header = yAxisContentG.append("g")
-        .attr("class", "y-grid")
-        .selectAll("line")
-        .data(gridYPos)
-        .join("line")
-        .attr("x1", 0)
-        .attr("x2", margin.left)
-        .attr("y1", d => d)
-        .attr("y2", d => d)
-        .attr("stroke", this.fmtSettings.axisYCard.lineColor.value.value)
-        .attr("stroke-width", 1);
+    // ====================== HEADER ======================
+if (headFmt.show.value) {
+  const header = yAxisContentG.append("g")
+    .attr("class", "y-grid")
+    .selectAll("line")
+    .data(gridYPos)
+    .join("line")
+    .attr("x1", 0)
+    .attr("x2", margin.left)
+    .attr("y1", d => d)
+    .attr("y2", d => d)
+    .attr("stroke", this.fmtSettings.axisYCard.lineColor.value.value)
+    .attr("stroke-width", 1);
 
-      const head = this.leftG.append("g")
-        .attr("class", "header")
-        .attr("transform", `translate(0, ${margin.top})`);
+  const head = this.leftG.append("g")
+    .attr("class", "header")
+    .attr("transform", `translate(0, ${margin.top})`);
 
-      head.append("rect")
-        .attr("x", 0)
-        .attr("y", -90)
-        .attr("width", margin.left)
-        .attr("height", 90)
-        .attr("zindex", 999)
-        .attr("fill", this.fmtSettings.headerCard.backgroundColor.value.value);
+  head.append("rect")
+    .attr("x", 0)
+    .attr("y", -90)
+    .attr("width", margin.left)
+    .attr("height", 90)
+    .attr("zindex", 999)
+    .attr("fill", this.fmtSettings.headerCard.backgroundColor.value.value);
 
-      head.append("line")
-        .attr("x1", 0)
-        .attr("x2", margin.left)
-        .attr("y1", 0)
-        .attr("y2", 0)
-        .attr("stroke", this.fmtSettings.axisYCard.lineColor.value.value)
-        .attr("stroke-width", this.fmtSettings.axisYCard.widthLine.value);
+  head.append("line")
+    .attr("x1", 0)
+    .attr("x2", margin.left)
+    .attr("y1", 0)
+    .attr("y2", 0)
+    .attr("stroke", this.fmtSettings.axisYCard.lineColor.value.value)
+    .attr("stroke-width", this.fmtSettings.axisYCard.widthLine.value);
 
-      // nombres dinámicos de columnas de tarea
-      this.taskColNames.forEach((n, i) =>
-        head.append("text").text(n)
-          .attr("x", colX(i))
-          .attr("y", -10)
-          .attr("zindex", 999)
-          .attr("fill", headFmt.fontColor.value.value)
-          .attr("font-size", headFmt.fontSize.value)
-          .attr("font-family", headFmt.fontFamily.value)
-      );
+  // === Nombres dinámicos de columnas de tarea ===
+  this.taskColNames.forEach((n, i) => {
+    head.append("text").text(n)
+      .attr("x", colX(i) + colWidths[i] / 2) // centrado
+      .attr("y", -10)
+      .attr("zindex", 999)
+      .attr("fill", headFmt.fontColor.value.value)
+      .attr("font-size", headFmt.fontSize.value)
+      .attr("font-family", headFmt.fontFamily.value)
+      .attr("text-anchor", "middle");
+  });
 
-      // columnas fijas
-      head.append("text").text("Inicio P")
-        .attr("x", colX(this.taskColCount))
-        .attr("y", -10)
-        .attr("zindex", 999)
-        .attr("fill", headFmt.fontColor.value.value)
-        .attr("font-size", headFmt.fontSize.value)
-        .attr("font-family", headFmt.fontFamily.value);
+  // === Columnas fijas ===
+  head.append("text").text("Inicio P")
+    .attr("x", colX(this.taskColCount) + colWidths[this.taskColCount] / 2)
+    .attr("y", -10)
+    .attr("zindex", 999)
+    .attr("fill", headFmt.fontColor.value.value)
+    .attr("font-size", headFmt.fontSize.value)
+    .attr("font-family", headFmt.fontFamily.value)
+    .attr("text-anchor", "middle");
 
-      head.append("text").text("Fin P")
-        .attr("x", colX(this.taskColCount + 1))
-        .attr("y", -10)
-        .attr("zindex", 999)
-        .attr("fill", headFmt.fontColor.value.value)
-        .attr("font-size", headFmt.fontSize.value)
-        .attr("font-family", headFmt.fontFamily.value);
+  head.append("text").text("Fin P")
+    .attr("x", colX(this.taskColCount + 1) + colWidths[this.taskColCount + 1] / 2)
+    .attr("y", -10)
+    .attr("zindex", 999)
+    .attr("fill", headFmt.fontColor.value.value)
+    .attr("font-size", headFmt.fontSize.value)
+    .attr("font-family", headFmt.fontFamily.value)
+    .attr("text-anchor", "middle");
 
-      // 🔹 nuevas columnas
-      head.append("text").text("Inicio R")
-        .attr("x", colX(this.taskColCount + 2))
-        .attr("y", -10)
-        .attr("zindex", 999)
-        .attr("fill", headFmt.fontColor.value.value)
-        .attr("font-size", headFmt.fontSize.value)
-        .attr("font-family", headFmt.fontFamily.value);
+  // === Columnas dinámicas extra ===
+  // === Columnas dinámicas extra ===
+if (extraColCount > 0) {
+  const baseIndex = this.taskColCount + 2 + (this.fmtSettings.taskCard.showSecondaryColumns.value ? 2 : 0);
 
-      head.append("text").text("Fin R")
-        .attr("x", colX(this.taskColCount + 3))
-        .attr("y", -10)
-        .attr("zindex", 999)
-        .attr("fill", headFmt.fontColor.value.value)
-        .attr("font-size", headFmt.fontSize.value)
-        .attr("font-family", headFmt.fontFamily.value);
+  for (let i = 0; i < extraColCount; i++) {
+    const colName = this.extraColNames?.[i] ?? `Col ${i + 1}`;
+    const colIndex = baseIndex + i;
+    head.append("text").text(colName)
+      .attr("x", colX(colIndex) + colWidths[colIndex] / 2) // 👈 centrado
+      .attr("y", -10)
+      .attr("zindex", 999)
+      .attr("fill", headFmt.fontColor.value.value)
+      .attr("font-size", headFmt.fontSize.value)
+      .attr("font-family", headFmt.fontFamily.value)
+      .attr("text-anchor", "middle");
+  }
+}
 
-      if (hasD) {
-        head.append("text").text("Duración")
-          // 👇 se corre dos posiciones más, ahora +4
-          .attr("x", colX(this.taskColCount + 4))
-          .attr("y", -10)
-          .attr("zindex", 999)
-          .attr("fill", headFmt.fontColor.value.value)
-          .attr("font-size", headFmt.fontSize.value)
-          .attr("font-family", headFmt.fontFamily.value);
-      }
-    }
+
+  // === Columnas secundarias ===
+  if (this.fmtSettings.taskCard.showSecondaryColumns.value) {
+    head.append("text").text(this.secondaryStartName)
+      .attr("x", colX(this.taskColCount + 2) + colWidths[this.taskColCount + 2] / 2)
+      .attr("y", -10)
+      .attr("zindex", 999)
+      .attr("fill", headFmt.fontColor.value.value)
+      .attr("font-size", headFmt.fontSize.value)
+      .attr("font-family", headFmt.fontFamily.value)
+      .attr("text-anchor", "middle");
+
+    head.append("text").text(this.secondaryEndName)
+      .attr("x", colX(this.taskColCount + 3) + colWidths[this.taskColCount + 3] / 2)
+      .attr("y", -10)
+      .attr("zindex", 999)
+      .attr("fill", headFmt.fontColor.value.value)
+      .attr("font-size", headFmt.fontSize.value)
+      .attr("font-family", headFmt.fontFamily.value)
+      .attr("text-anchor", "middle");
+  }
+
+  // === Duración ===
+  if (hasD) {
+    const durIndex = this.taskColCount + (this.fmtSettings.taskCard.showSecondaryColumns.value ? 4 : 2);
+    head.append("text").text("Duración")
+      .attr("x", colX(durIndex) + colWidths[durIndex] / 2)
+      .attr("y", -10)
+      .attr("zindex", 999)
+      .attr("fill", headFmt.fontColor.value.value)
+      .attr("font-size", headFmt.fontSize.value)
+      .attr("font-family", headFmt.fontFamily.value)
+      .attr("text-anchor", "middle");
+  }
+}
+
 
 
     const dateFmt = d3.timeFormat("%d/%m/%Y %H:%M:%S");
@@ -917,10 +937,16 @@ export class Visual implements IVisual {
             });
 
           label.text(null);
-          label.append("tspan").attr("fill", triColor).text(exp ? "▼" : "▶");
-          label.append("tspan").attr("fill", parFmt.fontColor.value.value).text(" " + row.labelY);
+          label.append("tspan")
+            .attr("fill", triColor)
+            .text(exp ? "▼" : "▶")
+            .attr("data-rowKey", row.rowKey);
+          label.append("tspan")
+            .attr("fill", parFmt.fontColor.value.value)
+            .text(" " + row.labelY)
+            .attr("data-rowKey", row.rowKey);
 
-          // --- Resto igual ---
+          // --- Fechas y secundarias ---
           const r = self.groupRange.get(row.id);
           if (r) {
             g.append("text").text(dateFmt(r.start))
@@ -939,143 +965,184 @@ export class Visual implements IVisual {
               .attr("font-size", parFmt.fontSize.value)
               .attr("font-family", parFmt.fontFamily.value);
 
-            // 🔹 nuevos
-            if (r.secondaryStart) {
-              g.append("text").text(dateFmt(r.secondaryStart))
-                .attr("x", colX(self.taskColCount + 2))
-                .attr("y", top + yScale.bandwidth() / 2 + 4)
-                .attr("font-weight", "bold")
-                .attr("fill", parFmt.fontColor.value.value)
-                .attr("font-size", parFmt.fontSize.value)
-                .attr("font-family", parFmt.fontFamily.value);
+            if (self.fmtSettings.taskCard.showSecondaryColumns.value) {
+              if (r.secondaryStart) {
+                g.append("text").text(dateFmt(r.secondaryStart))
+                  .attr("x", colX(self.taskColCount + 2))
+                  .attr("y", top + yScale.bandwidth() / 2 + 4)
+                  .attr("font-weight", "bold")
+                  .attr("fill", parFmt.fontColor.value.value)
+                  .attr("font-size", parFmt.fontSize.value)
+                  .attr("font-family", parFmt.fontFamily.value);
+              }
+              if (r.secondaryEnd) {
+                g.append("text").text(dateFmt(r.secondaryEnd))
+                  .attr("x", colX(self.taskColCount + 3))
+                  .attr("y", top + yScale.bandwidth() / 2 + 4)
+                  .attr("font-weight", "bold")
+                  .attr("fill", parFmt.fontColor.value.value)
+                  .attr("font-size", parFmt.fontSize.value)
+                  .attr("font-family", parFmt.fontFamily.value);
+              }
             }
-
-            if (r.secondaryEnd) {
-              g.append("text").text(dateFmt(r.secondaryEnd))
-                .attr("x", colX(self.taskColCount + 3))
-                .attr("y", top + yScale.bandwidth() / 2 + 4)
-                .attr("font-weight", "bold")
-                .attr("fill", parFmt.fontColor.value.value)
-                .attr("font-size", parFmt.fontSize.value)
-                .attr("font-family", parFmt.fontFamily.value);
-            }
-
           }
 
           if (row.duration !== undefined && hasD) {
             g.append("text").text(String(row.duration))
-              .attr("x", colX(self.taskColCount + 2))
+              // 👇 si hay columnas secundarias, mover Duración más a la derecha
+              .attr("x", colX(self.taskColCount + (self.fmtSettings.taskCard.showSecondaryColumns.value ? 4 : 2)))
               .attr("y", top + yScale.bandwidth() / 2 + 4)
               .attr("font-weight", "bold")
               .attr("fill", parFmt.fontColor.value.value)
               .attr("font-size", parFmt.fontSize.value)
               .attr("font-family", parFmt.fontFamily.value);
           }
-        } else if (row.task) {
-          const hasDuration = row.task.fields.length > self.taskColCount;
-          const durationIndex = hasDuration ? row.task.fields.length - 1 : -1;
 
-          const dateFmt = d3.timeFormat("%d/%m/%Y %H:%M");
+          // === Pintar columnas extra en fila Parent ===
+          if (self.extraColNames.length > 0) {
+            self.extraColNames.forEach((colName, i) => {
+              // 🔹 buscar todos los hijos de este parent
+              const children = self.cacheTasks.filter(t => t.parent === row.id);
+              const vals = children.map(t => t.extraCols?.[i]).filter(v => v !== undefined && v !== "");
 
-          row.task.fields.forEach((val, i) => {
-            if (hasDuration && i === durationIndex) return;
-
-            const maxWidth = colWidths[i] - 8;
-            let displayVal = val;
-
-            const tmp = g.append("text")
-              .attr("x", colX(i))
-              .attr("y", top + yScale.bandwidth() / 2 + 4)
-              .attr("font-size", taskFmt.fontSize.value)
-              .attr("fill", taskFmt.fontColor.value.value)
-              .attr("font-family", taskFmt.fontFamily.value)
-              .attr("data-rowKey", row.rowKey)
-              .text(displayVal);
-
-            // medir ancho real
-            let textNode = tmp.node() as SVGTextElement;
-            if (textNode.getComputedTextLength() > maxWidth) {
-              let str = val;
-              while (str.length && textNode.getComputedTextLength() > maxWidth) {
-                str = str.slice(0, -1);
-                tmp.text(str + "…");
-                textNode = tmp.node() as SVGTextElement;
+              let aggVal = "";
+              if (vals.length) {
+                const nums = vals.map(Number).filter(n => !isNaN(n));
+                if (nums.length === vals.length) {
+                  aggVal = d3.mean(nums)!.toFixed(1); // promedio si son numéricos
+                } else {
+                  aggVal = [...new Set(vals)].join(", "); // únicos si son textos
+                }
               }
-            }
 
-            // 👇 siempre agregar el tooltip con el valor completo
-            tmp.append("title").text(val);
-          });
+              // 👇 extraCols se corren detrás de secundarias si están activas
+              const baseIndex = self.taskColCount + 2 + (self.fmtSettings.taskCard.showSecondaryColumns.value ? 2 : 0);
+              const colIndex = baseIndex + i;
 
-
-
-          g.append("text")
-            .text(row.task.start && !isNaN(row.task.start.getTime())
-              ? dateFmt(row.task.start)
-              : " ")
-            .attr("x", colX(self.taskColCount))
-            .attr("y", top + yScale.bandwidth() / 2 + 4)
-            .attr("font-size", taskFmt.fontSize.value)
-            .attr("fill", taskFmt.fontColor.value.value)
-            .attr("font-family", taskFmt.fontFamily.value)
-            .attr("data-rowKey", row.rowKey)     // 👈 también acá
-            .append("title")               // 👈 tooltip nativo SVG
-
-          g.append("text")
-            .text(row.task.end && !isNaN(row.task.end.getTime())
-              ? dateFmt(row.task.end)
-              : " ")
-            .attr("x", colX(self.taskColCount + 1))
-            .attr("y", top + yScale.bandwidth() / 2 + 4)
-            .attr("font-size", taskFmt.fontSize.value)
-            .attr("fill", taskFmt.fontColor.value.value)
-            .attr("font-family", taskFmt.fontFamily.value)
-            .attr("data-rowKey", row.rowKey);     // 👈 también acá
-
-          g.append("text")
-            .text(row.task.secondaryStart && !isNaN(row.task.secondaryStart.getTime())
-              ? dateFmt(row.task.secondaryStart)
-              : " ")
-            .attr("x", colX(self.taskColCount + 2))   // Inicio R
-            .attr("y", top + yScale.bandwidth() / 2 + 4)
-            .attr("font-size", taskFmt.fontSize.value)
-            .attr("fill", taskFmt.fontColor.value.value)
-            .attr("font-family", taskFmt.fontFamily.value)
-            .attr("data-rowKey", row.rowKey);  // 👈 agregar esto
-
-          g.append("text")
-            .text(row.task.secondaryEnd && !isNaN(row.task.secondaryEnd.getTime())
-              ? dateFmt(row.task.secondaryEnd)
-              : " ")
-            .attr("x", colX(self.taskColCount + 3))   // Fin R
-            .attr("y", top + yScale.bandwidth() / 2 + 4)
-            .attr("font-size", taskFmt.fontSize.value)
-            .attr("fill", taskFmt.fontColor.value.value)
-            .attr("font-family", taskFmt.fontFamily.value)
-            .attr("data-rowKey", row.rowKey);
-
-
-          if (hasDuration) {
-            const durationVal = row.task.fields[durationIndex];
-            g.append("text").text(durationVal)
-              .attr("x", colX(self.taskColCount + 2))
-              .attr("y", top + yScale.bandwidth() / 2 + 4)
-              .attr("font-size", taskFmt.fontSize.value)
-              .attr("fill", taskFmt.fontColor.value.value)
-              .attr("font-family", taskFmt.fontFamily.value)
-              .attr("data-rowKey", row.rowKey);   // 👈 también acá
+              g.append("text")
+                .text(aggVal)
+                .attr("x", colX(colIndex))
+                .attr("y", top + yScale.bandwidth() / 2 + 4)
+                .attr("font-weight", "bold")
+                .attr("fill", parFmt.fontColor.value.value)
+                .attr("font-size", parFmt.fontSize.value)
+                .attr("font-family", parFmt.fontFamily.value);
+            });
           }
-
         }
 
+        else if (row.task) {
+  const hasDuration = row.task.fields.length > self.taskColCount;
+  const durationIndex = hasDuration ? row.task.fields.length - 1 : -1;
+  const showSecondaryColumns = self.fmtSettings.taskCard.showSecondaryColumns.value;
+
+  const dateFmt = d3.timeFormat("%d/%m/%Y %H:%M");
+
+  // === Pintar columnas base (task fields) ===
+  row.task.fields.forEach((val, i) => {
+    if (hasDuration && i === durationIndex) return;
+
+    const maxWidth = colWidths[i] - 8;
+    const tmp = g.append("text")
+      .attr("x", colX(i))
+      .attr("y", top + yScale.bandwidth() / 2 + 4)
+      .attr("font-size", taskFmt.fontSize.value)
+      .attr("fill", taskFmt.fontColor.value.value)
+      .attr("font-family", taskFmt.fontFamily.value)
+      .attr("data-rowKey", row.rowKey)
+      .text(val);
+
+    let textNode = tmp.node() as SVGTextElement;
+    if (textNode.getComputedTextLength() > maxWidth) {
+      let str = val;
+      while (str.length && textNode.getComputedTextLength() > maxWidth) {
+        str = str.slice(0, -1);
+        tmp.text(str + "…");
+        textNode = tmp.node() as SVGTextElement;
+      }
+    }
+    tmp.append("title").text(val);
+  });
+
+  // === Inicio P ===
+  g.append("text")
+    .text(row.task.start && !isNaN(row.task.start.getTime()) ? dateFmt(row.task.start) : " ")
+    .attr("x", colX(self.taskColCount))
+    .attr("y", top + yScale.bandwidth() / 2 + 4)
+    .attr("font-size", taskFmt.fontSize.value)
+    .attr("fill", taskFmt.fontColor.value.value)
+    .attr("font-family", taskFmt.fontFamily.value);
+
+  // === Fin P ===
+  g.append("text")
+    .text(row.task.end && !isNaN(row.task.end.getTime()) ? dateFmt(row.task.end) : " ")
+    .attr("x", colX(self.taskColCount + 1))
+    .attr("y", top + yScale.bandwidth() / 2 + 4)
+    .attr("font-size", taskFmt.fontSize.value)
+    .attr("fill", taskFmt.fontColor.value.value)
+    .attr("font-family", taskFmt.fontFamily.value);
+
+  // === Secondary (si está activo) ===
+  if (showSecondaryColumns) {
+    g.append("text")
+      .text(row.task.secondaryStart && !isNaN(row.task.secondaryStart.getTime()) ? dateFmt(row.task.secondaryStart) : " ")
+      .attr("x", colX(self.taskColCount + 2))
+      .attr("y", top + yScale.bandwidth() / 2 + 4)
+      .attr("font-size", taskFmt.fontSize.value)
+      .attr("fill", taskFmt.fontColor.value.value)
+      .attr("font-family", taskFmt.fontFamily.value);
+
+    g.append("text")
+      .text(row.task.secondaryEnd && !isNaN(row.task.secondaryEnd.getTime()) ? dateFmt(row.task.secondaryEnd) : " ")
+      .attr("x", colX(self.taskColCount + 3))
+      .attr("y", top + yScale.bandwidth() / 2 + 4)
+      .attr("font-size", taskFmt.fontSize.value)
+      .attr("fill", taskFmt.fontColor.value.value)
+      .attr("font-family", taskFmt.fontFamily.value);
+  }
+
+  // === ExtraCols justo acá (se pintan en el mismo flujo) ===
+  if (row.task.extraCols && self.extraColNames.length) {
+  row.task.extraCols.forEach((val, i) => {
+    const baseIndex = self.taskColCount + 2 + (showSecondaryColumns ? 2 : 0);
+    const colIndex = baseIndex + i;
+
+    const tmp = g.append("text")
+      .attr("x", colX(colIndex))
+      .attr("y", top + yScale.bandwidth() / 2 + 4)
+      .attr("font-size", taskFmt.fontSize.value)
+      .attr("fill", taskFmt.fontColor.value.value)
+      .attr("font-family", taskFmt.fontFamily.value)
+      .attr("data-rowKey", row.rowKey)
+      .text(val || "");   // ← incluso si está vacío
+
+    tmp.append("title").text(val || "");
+  });
+}
+
+
+  // === Duración (último campo) ===
+  if (hasDuration) {
+    const durationVal = row.task.fields[durationIndex];
+    g.append("text").text(durationVal)
+      .attr("x", colX(self.taskColCount + 2))
+      .attr("y", top + yScale.bandwidth() / 2 + 4)
+      .attr("font-size", taskFmt.fontSize.value)
+      .attr("fill", taskFmt.fontColor.value.value)
+      .attr("font-family", taskFmt.fontFamily.value);
+  }
+}
+
+
+
       });
+
     if (this.fmtSettings.axisYCard.showLine.value) {
       this.leftG.selectAll(".row")
         .data(visibleRows)
         .enter().append("g")
         .attr("class", "row")
         .each(function (row) {
-          // ...
         });
 
       yAxisContentG.append("line")
@@ -1634,84 +1701,120 @@ export class Visual implements IVisual {
   }
 
   private parseData(dv: DataView): Task[] {
-    if (!dv.categorical?.categories?.length) return [];
-    const cat = dv.categorical;
+  if (!dv.categorical?.categories?.length) return [];
+  const cat = dv.categorical;
 
-    const sVal = cat.values.find(v => v.source.roles?.startDate)?.values;
-    const eVal = cat.values.find(v => v.source.roles?.endDate)?.values;
-    const durVal = cat.values.find(v => v.source.roles?.duration)?.values;
-    const compVal = cat.values.find(v => v.source.roles?.completion)?.values;
-    const secStartVal = cat.values.find(v => v.source.roles?.secondaryStart)?.values;
-    const secEndVal = cat.values.find(v => v.source.roles?.secondaryEnd)?.values;
+  // === valores estándar ===
+  const sVal = cat.values.find(v => v.source.roles?.startDate);
+  const eVal = cat.values.find(v => v.source.roles?.endDate);
+  const durVal = cat.values.find(v => v.source.roles?.duration);
+  const compVal = cat.values.find(v => v.source.roles?.completion);
+  const secStartVal = cat.values.find(v => v.source.roles?.secondaryStart);
+  const secEndVal = cat.values.find(v => v.source.roles?.secondaryEnd);
 
-    const taskCols: { name: string; values: any[] }[] = [];
-    const parentCols: { values: any[] }[] = [];
+  // 👉 guardamos nombres para usarlos en el header
+  this.secondaryStartName = secStartVal?.source.displayName ?? "Inicio R";
+  this.secondaryEndName = secEndVal?.source.displayName ?? "Fin R";
 
-    let predCol: any[] | undefined;
+  // === Columns: medidas y categorías ===
+  const colVals = cat.values.filter(v => v.source.roles?.columns); // medidas
+  const colCatVals: { name: string; values: any[] }[] = [];        // categorías
+  cat.categories.forEach(c => {
+    if (c.source.roles?.columns) {
+      colCatVals.push({ name: c.source.displayName, values: c.values });
+    }
+  });
 
-    cat.categories.forEach(c => {
-      const r = c.source.roles;
-      if (r?.task) taskCols.push({ name: c.source.displayName, values: c.values });
-      if (r?.parent) parentCols.push({ values: c.values });
-      if (r?.predecessor) predCol = c.values;
-    });
+  // 👉 nombres de columnas dinámicos (si no hay nada, igual inicializamos)
+  this.extraColNames = [
+    ...colVals.map(c => c.source.displayName),
+    ...colCatVals.map(c => c.name)
+  ];
 
-    this.taskColCount = taskCols.length;
-    this.taskColNames = taskCols.map(c => c.name);
+  const taskCols: { name: string; values: any[] }[] = [];
+  const parentCols: { values: any[] }[] = [];
 
-    const out: Task[] = [];
-    const rowCount = sVal?.length ?? 0;
+  let predCol: any[] | undefined;
 
-    for (let i = 0; i < rowCount; i++) {
-      const taskFields = taskCols.map(c => String(c.values[i] ?? ""));
-      const parentTxt = parentCols.map(c => String(c.values[i] ?? "")).join(" | ") || "Sin grupo";
+  cat.categories.forEach(c => {
+    const r = c.source.roles;
+    if (r?.task) taskCols.push({ name: c.source.displayName, values: c.values });
+    if (r?.parent) parentCols.push({ values: c.values });
+    if (r?.predecessor) predCol = c.values;
+  });
 
-      const rawStart = sVal?.[i];
-      const rawEnd = eVal?.[i];
+  this.taskColCount = taskCols.length;
+  this.taskColNames = taskCols.map(c => c.name);
 
-      const start = rawStart ? new Date(rawStart as string) : null;
-      const end = rawEnd ? new Date(rawEnd as string) : null;
+  const out: Task[] = [];
+  const rowCount = sVal?.values?.length ?? 0;
 
-      const isStartValid = start instanceof Date && !isNaN(start.getTime());
-      const isEndValid = end instanceof Date && !isNaN(end.getTime());
+  for (let i = 0; i < rowCount; i++) {
+    const taskFields = taskCols.map(c => String(c.values[i] ?? ""));
+    const parentTxt = parentCols.map(c => String(c.values[i] ?? "")).join(" | ") || "Sin grupo";
 
-      const duration = durVal ? Number(durVal[i]) : undefined;
-      const fieldsWithDuration = durVal ? [...taskFields, duration?.toString() ?? ""] : taskFields;
+    const rawStart = sVal?.values?.[i];
+    const rawEnd = eVal?.values?.[i];
 
-      let predecessor: string | undefined;
-      if (predCol) {
-        const rawPred = String(predCol[i] ?? "").trim();
-        if (rawPred !== "") predecessor = rawPred;
-      }
+    const start = rawStart ? new Date(rawStart as string) : null;
+    const end = rawEnd ? new Date(rawEnd as string) : null;
 
-      const secStart =
-        typeof secStartVal?.[i] === "string" || typeof secStartVal?.[i] === "number"
-          ? new Date(secStartVal[i] as string | number)
-          : undefined;
+    const isStartValid = start instanceof Date && !isNaN(start.getTime());
+    const isEndValid = end instanceof Date && !isNaN(end.getTime());
 
-      const secEnd =
-        typeof secEndVal?.[i] === "string" || typeof secEndVal?.[i] === "number"
-          ? new Date(secEndVal[i] as string | number)
-          : undefined;
+    const duration = durVal ? Number(durVal.values?.[i]) : undefined;
+    const fieldsWithDuration = durVal ? [...taskFields, duration?.toString() ?? ""] : taskFields;
 
-      const task: Task = {
-        id: taskFields.join(" | "),
-        parent: parentTxt,
-        start: isStartValid ? start! : null,
-        end: isEndValid ? end! : null,
-        fields: fieldsWithDuration,
-        completion: compVal ? Number(compVal[i]) : undefined,
-        secondaryStart: secStart,
-        secondaryEnd: secEnd,
-        predecessor,
-        index: i  // <<--- agregado
-      };
-
-      out.push(task);
+    let predecessor: string | undefined;
+    if (predCol) {
+      const rawPred = String(predCol[i] ?? "").trim();
+      if (rawPred !== "") predecessor = rawPred;
     }
 
-    return out;
+    const secStart =
+      typeof secStartVal?.values?.[i] === "string" || typeof secStartVal?.values?.[i] === "number"
+        ? new Date(secStartVal.values[i] as string | number)
+        : undefined;
+
+    const secEnd =
+      typeof secEndVal?.values?.[i] === "string" || typeof secEndVal?.values?.[i] === "number"
+        ? new Date(secEndVal.values[i] as string | number)
+        : undefined;
+
+    // 🔹 capturamos valores de Columns (medidas + categorías)
+    const extraCols = [
+      ...colVals.map(c => String(c.values[i] ?? "")),   // medidas
+      ...colCatVals.map(c => String(c.values[i] ?? "")) // categorías
+    ];
+
+    // 👇 fallback: si está vacío, igual rellenamos con strings vacíos
+    const paddedExtraCols =
+      extraCols.length === this.extraColNames.length
+        ? extraCols
+        : Array(this.extraColNames.length).fill("");
+
+    console.log("Row:", i, "TaskID:", taskFields.join(" | "), "Columns:", paddedExtraCols);
+
+    const task: Task = {
+      id: taskFields.join(" | "),
+      parent: parentTxt,
+      start: isStartValid ? start! : null,
+      end: isEndValid ? end! : null,
+      fields: fieldsWithDuration,
+      completion: compVal ? Number(compVal.values?.[i]) : undefined,
+      secondaryStart: secStart,
+      secondaryEnd: secEnd,
+      predecessor,
+      index: i,
+      extraCols: paddedExtraCols
+    };
+
+    out.push(task);
   }
+
+  return out;
+}
+
 
   private buildRows(tasks: Task[], cache: Map<string, boolean>) {
     const rows: VisualRow[] = [];

@@ -1,6 +1,7 @@
 {
   "dataRoles": [
-    {  "displayName": "Task", "name": "task", "kind": "Grouping" },
+    { "displayName": "Task", "name": "task", "kind": "Grouping" },
+    { "displayName": "Columns", "name": "columns", "kind": "GroupingOrMeasure"},
     { "displayName": "Parent", "name": "parent", "kind": "Grouping" },
     { "displayName": "Start Date", "name": "startDate", "kind": "Measure" },
     { "displayName": "End Date", "name": "endDate", "kind": "Measure" },
@@ -21,7 +22,8 @@
           "secondaryEnd": { "max": 1},
           "secondaryStart": { "max": 1},
           "predecessor": { "max": 1},
-          "completion": {"max": 1}
+          "completion": {"max": 1},
+          "columns": {"max": 5}
         }
       ],
       "categorical": {
@@ -29,13 +31,15 @@
           "select": [
             { "bind": { "to": "task" } },
             { "bind": { "to": "parent" } },
-            { "bind": { "to": "predecessor" } }
+            { "bind": { "to": "predecessor" } },
+            { "for": { "in": "columns" } }
           ]
         },
         "values": {
           "select": [
             { "bind": { "to": "startDate" } },
             { "bind": { "to": "endDate" } },
+            { "bind": { "to": "columns" } },
             { "bind": { "to": "secondaryStart" } },
             { "bind": { "to": "secondaryEnd" } },
             { "bind": { "to": "completion" } }
@@ -561,6 +565,13 @@
       "properties": {
         "show": {
           "displayName": "Mostrar tareas",
+          "type": {
+            "bool": true
+          }
+        },
+        "showSecondary": {
+          "displayName": "Mostrar campos de Secondary",
+          "description": "Mostrar campos de Secondary",
           "type": {
             "bool": true
           }

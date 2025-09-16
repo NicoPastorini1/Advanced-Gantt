@@ -67,6 +67,9 @@ export declare class Visual implements IVisual {
     private barH;
     private zoomBehavior;
     private baseDomain?;
+    private extraColNames;
+    private secondaryStartName;
+    private secondaryEndName;
     private computeInnerW;
     private getGroupBarPath;
     private getCompletionByGroup;

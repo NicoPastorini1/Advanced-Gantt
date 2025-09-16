@@ -335,6 +335,12 @@ class TaskCardSetting extends SimpleCard {
         value: true
     });
 
+    showSecondaryColumns = new ToggleSwitch({
+        name: "showSecondary",
+        displayName: "Mostrar campos de Secondary",
+        value: true
+    });
+
     taskHeight = new NumUpDown({
         name: "taskHeight",
         displayName: "Alto de tarea",
@@ -397,7 +403,7 @@ class TaskCardSetting extends SimpleCard {
 
     name = "taskStyle";
     displayName = "Tareas";
-    slices: FormattingSettingsSlice[] = [this.show, this.taskHeight, this.fontColor, this.fontSize, this.fontFamily, this.taskWidth, this.startWidth, this.endWidth, this.secStartWidth, this.secEndWidth ];
+    slices: FormattingSettingsSlice[] = [this.show, this.showSecondaryColumns, this.taskHeight, this.fontColor, this.fontSize, this.fontFamily, this.taskWidth, this.startWidth, this.endWidth, this.secStartWidth, this.secEndWidth ];
 }
 
 /* ────────────────────────────────
