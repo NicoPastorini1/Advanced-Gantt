@@ -11,13 +11,13 @@ import { GanttDataPoint } from "./visual";
 
 class ColorSelectorCardSettings extends SimpleCard {
     name: string = "colorSelector";
-    displayName?: string = "Data Colors";
+    displayName?: string = "Color del padre";
     slices: Slice[] = [];
 }
 
-class LegendColorSelectorCardSettings extends SimpleCard {
+class LegendDataPointCardSettings extends SimpleCard {
     name: string = "legendColorSelector";
-    displayName?: string = "Legend Colors";
+    displayName?: string = "Legend colors";
     slices: Slice[] = [];
 }
 
@@ -621,7 +621,7 @@ export class VisualFormattingSettingsModel extends Model {
     taskCard = new TaskCardSetting();
     parentCard = new ParentCardSetting();
     colorSelector = new ColorSelectorCardSettings();
-    legendColorSelector = new LegendColorSelectorCardSettings();
+    legendDataPoint = new LegendDataPointCardSettings();
     weekendCard = new WeekendCardSettings();
     completionCard = new completionCardSettings();
     timeMarkerCard = new TimeMarkerCardSettings();
@@ -636,7 +636,7 @@ export class VisualFormattingSettingsModel extends Model {
         this.taskCard,
         this.parentCard,
         this.colorSelector,
-        this.legendColorSelector,
+        this.legendDataPoint,
         this.weekendCard,
         this.completionCard,
         this.timeMarkerCard,
@@ -645,6 +645,7 @@ export class VisualFormattingSettingsModel extends Model {
     ];
 
     populateColorSelector(dataPoints: GanttDataPoint[]) {
+        this.colorSelector.slices = [];
         const slices: Slice[] = this.colorSelector.slices;
         if (dataPoints) {
             dataPoints.forEach(dataPoint => {
@@ -658,17 +659,19 @@ export class VisualFormattingSettingsModel extends Model {
         }
     }
 
-    populateLegendColorSelector(dataPoints: any[]) {
-        const slices: Slice[] = this.legendColorSelector.slices;
+    populateLegendDataPointSlices(dataPoints: any[]) {
+        this.legendDataPoint.slices = [];
+        const slices: Slice[] = this.legendDataPoint.slices;
         if (dataPoints) {
             dataPoints.forEach(dataPoint => {
                 slices.push(new ColorPicker({
                     name: "fill",
                     displayName: dataPoint.legend,
                     value: { value: dataPoint.color },
-                    selector: dataPoint.selectionId.getSelector(),
+                    selector: dataPoint.selectionId.getSelector()
                 }));
             });
         }
     }
+
 }

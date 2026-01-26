@@ -29,9 +29,12 @@
         {"for":{"in":"columns"}}
       ]},
       "values":{"select":[
-        {"bind":{"to":"startDate"}},{"bind":{"to":"endDate"}},
-        {"bind":{"to":"columns"}},{"bind":{"to":"secondaryStart"}},
-        {"bind":{"to":"secondaryEnd"}},{"bind":{"to":"completion"}}
+        {"bind":{"to":"startDate"}},
+        {"bind":{"to":"endDate"}},
+        {"bind":{"to":"columns"}},
+        {"bind":{"to":"secondaryStart"}},
+        {"bind":{"to":"secondaryEnd"}},
+        {"bind":{"to":"completion"}}
       ]}
     }
   }],
@@ -123,7 +126,10 @@
       "fontSize":{"displayName":"Tamaño de fuente","type":{"formatting":{"fontSize":true}}},
       "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}}
     }},
-    "legendColorSelector":{"displayName":"Legend Colors","properties":{"fill":{"displayName":"Color","type":{"fill":{"solid":{"color":true}}}}}}
+    "legendColorSelector":{"displayName":"Legend Colors","properties":{
+      "fill":{"displayName":"Color","type":{"fill":{"solid":{"color":true}}}},
+      "legendColorMap":{"displayName":"Legend color map","type":{"text":true}}
+    }}
   },
   "tooltips":{
     "supportedTypes":{"default":true,"canvas":true,"page":true},

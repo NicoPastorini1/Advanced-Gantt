@@ -9,7 +9,7 @@ declare class ColorSelectorCardSettings extends SimpleCard {
     displayName?: string;
     slices: Slice[];
 }
-declare class LegendColorSelectorCardSettings extends SimpleCard {
+declare class LegendDataPointCardSettings extends SimpleCard {
     name: string;
     displayName?: string;
     slices: Slice[];
@@ -162,7 +162,7 @@ export declare class VisualFormattingSettingsModel extends Model {
     taskCard: TaskCardSetting;
     parentCard: ParentCardSetting;
     colorSelector: ColorSelectorCardSettings;
-    legendColorSelector: LegendColorSelectorCardSettings;
+    legendDataPoint: LegendDataPointCardSettings;
     weekendCard: WeekendCardSettings;
     completionCard: completionCardSettings;
     timeMarkerCard: TimeMarkerCardSettings;
@@ -170,6 +170,6 @@ export declare class VisualFormattingSettingsModel extends Model {
     labelCard: labelCardSettings;
     cards: Card[];
     populateColorSelector(dataPoints: GanttDataPoint[]): void;
-    populateLegendColorSelector(dataPoints: any[]): void;
+    populateLegendDataPointSlices(dataPoints: any[]): void;
 }
 export {};

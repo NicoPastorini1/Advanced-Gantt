@@ -16,6 +16,7 @@ export interface BarDatum {
     secondaryEnd?: Date;
     selectionId: ISelectionId;
     legend?: string;
+    gradientId?: string;
 }
 export interface GanttDataPoint {
     task: string;
@@ -79,8 +80,6 @@ export declare class Visual implements IVisual {
     private startName;
     private endName;
     private parentName;
-    private legendColorCache;
-    private taskParentMap;
     private computeInnerW;
     private getGroupBarPath;
     private getCompletionByGroup;
