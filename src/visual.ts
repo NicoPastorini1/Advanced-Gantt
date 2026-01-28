@@ -896,74 +896,61 @@ export class Visual implements IVisual {
       .on("touchstart.zoom", null);
 
     this.ganttSVG
-      .on("dblclick", () => {
-        const taskDurations = this.cacheTasks
-          .filter(t => t.start && t.end)
-          .map(t => d3.timeDay.count(t.start!, t.end!));
+  .on("dblclick", () => {
+    // Obtener el rango real de fechas de todas las tareas
+    const validTasks = this.cacheTasks.filter(t => t.start && t.end);
+    
+    if (validTasks.length === 0) return;
 
-        const avgDuration = taskDurations.length > 0
-          ? d3.mean(taskDurations)!
-          : 30;
+    const minDate = d3.min(validTasks, t => t.start)!;
+    const maxDate = d3.max(validTasks, t => t.end)!;
+    
+    // Calcular duración promedio para elegir formato óptimo
+    const taskDurations = validTasks.map(t => d3.timeDay.count(t.start!, t.end!));
+    const avgDuration = d3.mean(taskDurations) ?? 30;
 
-        let zoomDays: number;
-        let optimalFormat: FormatType;
+    let optimalFormat: FormatType;
 
-        if (avgDuration <= 2) {
-          zoomDays = 7;
-          optimalFormat = "Día";
-        } else if (avgDuration <= 15) {
-          zoomDays = 60;
-          optimalFormat = "Día";
-        } else if (avgDuration <= 90) {
-          zoomDays = 180;
-          optimalFormat = "Mes";
-        } else {
-          zoomDays = 365;
-          optimalFormat = "Mes";
-        }
-        let startDate: Date;
+    if (avgDuration <= 2) {
+      optimalFormat = "Día";
+    } else if (avgDuration <= 15) {
+      optimalFormat = "Día";
+    } else if (avgDuration <= 90) {
+      optimalFormat = "Mes";
+    } else {
+      optimalFormat = "Mes";
+    }
 
+    // Usar el rango real (min-max) de las tareas
+    const startDate = minDate;
+    const endDate = maxDate;
+
+    const visibleW = this.width - this.marginLeft;
+    const rangeWidth = this.xOriginal(endDate) - this.xOriginal(startDate);
+    const scale = visibleW / rangeWidth;
+    const firstBarX = this.xOriginal(startDate);
+    const translateX = -firstBarX * scale + 20;
+
+    const targetTransform = d3.zoomIdentity
+      .translate(translateX, 0)
+      .scale(scale);
+
+    this.ganttSVG.transition()
+      .duration(500)
+      .call(this.zoomBehavior.transform, targetTransform);
+
+    this.selectedFormat = optimalFormat;
+    this.updateFormatButtonsUI(this.selectedFormat);
+
+    this.ganttSVG.transition()
+      .delay(550)
+      .on("end", () => {
         if (this.currentZoomTransform) {
-          const oldX = this.currentZoomTransform.rescaleX(this.xOriginal);
-          const [oldMin] = oldX.domain();
-          const visibleTask = this.cacheTasks
-            .filter(t => t.start && t.end)
-            .sort((a, b) => +a.start! - +b.start!)
-            .find(t => t.start! >= oldMin);
-
-          startDate = visibleTask?.start ?? d3.min(this.cacheTasks, t => t.start)!;
-        } else {
-          startDate = d3.min(this.cacheTasks, t => t.start)!;
+          const newX = this.currentZoomTransform.rescaleX(this.xOriginal);
+          this.redrawZoomedElements(newX, this.y, this.barH);
         }
-
-        const endDate = d3.timeDay.offset(startDate, zoomDays);
-
-        const visibleW = this.width - this.marginLeft;
-        const rangeWidth = this.xOriginal(endDate) - this.xOriginal(startDate);
-        const scale = visibleW / rangeWidth;
-        const firstBarX = this.xOriginal(startDate);
-        const translateX = -firstBarX * scale + 20;
-
-        const targetTransform = d3.zoomIdentity
-          .translate(translateX, 0)
-          .scale(scale);
-
-        this.ganttSVG.transition()
-          .duration(500)
-          .call(this.zoomBehavior.transform, targetTransform);
-
-        this.selectedFormat = optimalFormat;
-        this.updateFormatButtonsUI(this.selectedFormat);
-
-        this.ganttSVG.transition()
-          .delay(550)
-          .on("end", () => {
-            if (this.currentZoomTransform) {
-              const newX = this.currentZoomTransform.rescaleX(this.xOriginal);
-              this.redrawZoomedElements(newX, this.y, this.barH);
-            }
-          });
       });
+  });
 
 
     let rafPending = false;
@@ -1002,7 +989,7 @@ export class Visual implements IVisual {
       event.preventDefault();
     });
 
-    if (headFmt.show.value) {
+    
       const header = yAxisContentG.append("g")
         .attr("class", "y-grid")
         .selectAll("line")
@@ -1014,7 +1001,7 @@ export class Visual implements IVisual {
         .attr("y2", d => d)
         .attr("stroke", this.fmtSettings.axisYCard.lineColor.value.value)
         .attr("stroke-width", 1);
-
+if (headFmt.show.value) {
       const head = this.leftG.append("g")
         .attr("class", "header")
         .attr("transform", `translate(0, ${margin.top})`);
@@ -2184,7 +2171,7 @@ export class Visual implements IVisual {
   ) {
     const days = d3.timeDays(newX.domain()[0], newX.domain()[1]);
 
-    if (this.selectedFormat === "Día") {
+    if (this.selectedFormat === "Día" && this.fmtSettings.weekendCard.show.value) {
       this.ganttG.selectAll<SVGLineElement, Date>("line.day")
         .data(days, d => d.getTime().toString())
         .join(
