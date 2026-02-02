@@ -65,7 +65,37 @@
       "backgroundColor":{"displayName":"Color de fondo","type":{"fill":{"solid":{"color":true}}}},
       "fontSize":{"displayName":"Tamaño de fuente","type":{"formatting":{"fontSize":true}}},
       "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}}
-    }},
+    }}
+    ,
+    "secondaryBarCard": {
+      "displayName": "Barras secundarias",
+      "properties": {
+        "show": {
+          "displayName": "Mostrar barra secundaria",
+          "type": { "bool": true }
+        },
+        "barHeight": {
+          "displayName": "Alto de barra",
+          "type": { "numeric": true }
+        },
+        "opacity": {
+          "displayName": "Opacidad",
+          "type": { "numeric": true }
+        },
+        "strokeWidth": {
+          "displayName": "Ancho de borde",
+          "type": { "numeric": true }
+        },
+        "barColor": {
+          "displayName": "Color",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "strokeColor": {
+          "displayName": "Color de borde",
+          "type": { "fill": { "solid": { "color": true } } }
+        }
+      }
+    },
     "colorSelector":{"displayName":"Data colors","properties":{
       "fill":{"type":{"fill":{"solid":{"color":true}}}}
     }},

@@ -125,6 +125,17 @@ declare class TaskCardSetting extends SimpleCard {
     displayName: string;
     slices: FormattingSettingsSlice[];
 }
+declare class SecondaryBarCardSettings extends SimpleCard {
+    name: string;
+    displayName: string;
+    show: ToggleSwitch;
+    barHeight: NumUpDown;
+    opacity: formattingSettings.Slider;
+    barColor: ColorPicker;
+    strokeColor: ColorPicker;
+    strokeWidth: NumUpDown;
+    slices: formattingSettings.Slice[];
+}
 declare class ParentCardSetting extends SimpleCard {
     show: formattingSettings.ToggleSwitch;
     fontColor: formattingSettings.ColorPicker;
@@ -158,6 +169,7 @@ export declare class VisualFormattingSettingsModel extends Model {
     axisYCard: AxisYCardSettings;
     axisXCard: AxisXCardSettings;
     barCard: BarCardSettings;
+    secondaryBarCard: SecondaryBarCardSettings;
     headerCard: HeaderCardSettings;
     taskCard: TaskCardSetting;
     parentCard: ParentCardSetting;

@@ -9,6 +9,7 @@ import { Model, Slice, ColorPicker, SimpleCard, NumUpDown, ToggleSwitch, FontCon
 import { GanttDataPoint } from "./visual";
 import powerbiVisualsApi from "powerbi-visuals-api";
 import VisualEnumerationInstanceKinds = powerbiVisualsApi.VisualEnumerationInstanceKinds;
+import { dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 
 /* DATA COLORS */
 
@@ -498,7 +499,61 @@ class TaskCardSetting extends SimpleCard {
     displayName = "Tareas";
     slices: FormattingSettingsSlice[] = [this.show, this.showSecondaryColumns, this.taskHeight, this.fontColor, this.fontSize, this.fontFamily, this.taskWidth, this.startWidth, this.endWidth, this.secStartWidth, this.secEndWidth];
 }
+class SecondaryBarCardSettings extends SimpleCard {
+    name: string = "secondaryBarCard";
+    displayName: string = "Barras secundarias";
 
+    public show: ToggleSwitch = new ToggleSwitch({
+        name: "show",
+        displayName: "Mostrar barra secundaria",
+        value: true
+    });
+
+    public barHeight: NumUpDown = new NumUpDown({
+        name: "barHeight",
+        displayName: "Alto de barra",
+        description: "Altura en píxeles; 0 = automático",
+        value: 30
+    });
+
+    public opacity: formattingSettings.Slider = new formattingSettings.Slider({
+        name: "opacity",
+        displayName: "Opacidad",
+        description: "0 = transparente, 1 = sólido",
+        value: 0.8
+    });
+
+    public barColor: ColorPicker = new ColorPicker({
+        name: "barColor",
+        displayName: "Color",
+        value: { value: "#000000" },
+        selector: undefined,
+        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    public strokeColor: ColorPicker = new ColorPicker({
+    name: "strokeColor",
+    displayName: "Color de borde",
+    value: { value: "#000000" },
+    selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+    instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
+});
+
+    public strokeWidth: NumUpDown = new NumUpDown({
+        name: "strokeWidth",
+        displayName: "Ancho de borde",
+        value: 3
+    });
+
+    public slices: formattingSettings.Slice[] = [
+        this.show,
+        this.barHeight,
+        this.opacity,
+        this.barColor,
+        this.strokeColor,
+        this.strokeWidth
+    ];
+}
 /* ────────────── Parent ───────────────────── */
 class ParentCardSetting extends SimpleCard {
     show = new ToggleSwitch({
@@ -602,6 +657,7 @@ export class VisualFormattingSettingsModel extends Model {
     axisYCard = new AxisYCardSettings();
     axisXCard = new AxisXCardSettings();
     barCard = new BarCardSettings();
+    secondaryBarCard = new SecondaryBarCardSettings();
     headerCard = new HeaderCardSettings();
     taskCard = new TaskCardSetting();
     parentCard = new ParentCardSetting();
@@ -617,6 +673,7 @@ export class VisualFormattingSettingsModel extends Model {
         this.axisXCard,
         this.axisYCard,
         this.barCard,
+        this.secondaryBarCard,
         this.headerCard,
         this.taskCard,
         this.parentCard,

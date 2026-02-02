@@ -29,6 +29,7 @@ import DataViewObjectPropertyIdentifier = powerbi.DataViewObjectPropertyIdentifi
 import ISandboxExtendedColorPalette = powerbi.extensibility.ISandboxExtendedColorPalette;
 import Fill = powerbi.Fill;
 import FormattingId = powerbi.visuals.FormattingId;
+import { dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 
 interface Task {
   id: string;
@@ -239,7 +240,7 @@ export class Visual implements IVisual {
     });
 
     // 👇 AÑADE ESTA SECCIÓN
-    this.ganttG.selectAll<SVGElement, BarDatum>(".bar-secondary-end-marker").attr("opacity", d => {
+    this.ganttG.selectAll<SVGLineElement, BarDatum>(".bar-secondary-end-marker").attr("opacity", d => {
       if (!hasSelection) return 1;
       return this.selectedIds.some(sel => sel.getKey() === d.selectionId.getKey()) ? 1 : 0.3;
     });
@@ -365,43 +366,22 @@ export class Visual implements IVisual {
     });
 
     if (colorChangesByValue.size > 0) {
-      const updates: any[] = [];
       const colorMapObject: any = {};
-
       this.legendColorStore.forEach((color, legendValue) => {
         colorMapObject[legendValue] = color;
       });
 
-      colorChangesByValue.forEach((newColor, legendValue) => {
-        const idx = indexByValue.get(legendValue);
-        if (idx !== undefined) {
-          const selector = this.host.createSelectionIdBuilder()
-            .withCategory(legendCategory, idx)
-            .createSelectionId()
-            .getSelector();
-
-          updates.push({
-            objectName: "legendColorSelector",
-            selector,
-            properties: {
-              fill: { solid: { color: newColor } }
-            }
-          });
-        }
+      this.host.persistProperties({
+        merge: [{
+          objectName: "legendColorState",
+          selector: null,
+          properties: {
+            colorMap: JSON.stringify(colorMapObject)
+          }
+        }]
       });
-
-      updates.push({
-        objectName: "legendColorState",
-        selector: null,
-        properties: {
-          colorMap: JSON.stringify(colorMapObject)
-        }
-      });
-
-      this.host.persistProperties({ merge: updates });
     }
 
-    // 🔹 PASO 4: Crear data points con colores del store
     const uniqueValues = new Set<string>();
     const indexByLegend = new Map<string, number>();
 
@@ -414,6 +394,8 @@ export class Visual implements IVisual {
       }
     });
 
+    const needsPersist = new Set<string>();
+
     uniqueValues.forEach((value) => {
       const baseIndex = indexByLegend.get(value)!;
 
@@ -423,29 +405,12 @@ export class Visual implements IVisual {
 
       let color: string;
 
-      // Primero intentar obtener del store (que ya tiene los guardados)
       if (this.legendColorStore.has(value)) {
         color = this.legendColorStore.get(value)!;
       } else {
-        // Si no existe, generar uno nuevo
         color = colorPalette.getColor(value).value;
         this.legendColorStore.set(value, color);
-
-        // 🔹 Guardar inmediatamente el nuevo color
-        const updatedColorMap: any = {};
-        this.legendColorStore.forEach((c, k) => {
-          updatedColorMap[k] = c;
-        });
-
-        this.host.persistProperties({
-          merge: [{
-            objectName: "legendColorState",
-            selector: null,
-            properties: {
-              colorMap: JSON.stringify(updatedColorMap)
-            }
-          }]
-        });
+        needsPersist.add(value);
       }
 
       dataPoints.push({
@@ -456,6 +421,23 @@ export class Visual implements IVisual {
         formattingId: {} as FormattingId
       });
     });
+
+    if (needsPersist.size > 0) {
+      const colorMapObject: any = {};
+      this.legendColorStore.forEach((c, k) => {
+        colorMapObject[k] = c;
+      });
+
+      this.host.persistProperties({
+        merge: [{
+          objectName: "legendColorState",
+          selector: null,
+          properties: {
+            colorMap: JSON.stringify(colorMapObject)
+          }
+        }]
+      });
+    }
 
     return dataPoints;
   }
@@ -1467,6 +1449,7 @@ export class Visual implements IVisual {
       });
 
     const parentCategory = categorical.categories[1];
+    const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
 
     const groupBars: BarDatum[] = visibleRows
       .filter(r => r.isGroup)
@@ -1762,6 +1745,7 @@ export class Visual implements IVisual {
           return Math.max(0, xEnd - xStart);
         })
         .attr("height", d => d.isGroup ? 4 : 5)
+        .attr("data-bar-height", d => d.isGroup ? 4 : 5)
         .attr("fill", d => {
           const baseColor = this.getBarColor(d.rowKey, d.legend);
           const color = d3.color(baseColor);
@@ -1770,31 +1754,50 @@ export class Visual implements IVisual {
           }
           return "#1a252f";
         })
-        .attr("stroke", "rgba(255,255,255,0.6)")
-        .attr("stroke-width", 1)
+        .attr("stroke", d => {
+          if (legendCategory && d.legend) {
+            const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
+            const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
+            if (obj) {
+              const prop: DataViewObjectPropertyIdentifier = {
+                objectName: "secondaryBarCard",
+                propertyName: "strokeColor"
+              };
+              const fill = dataViewObjects.getValue<Fill>(obj, prop);
+              if (fill?.solid?.color) {
+                return fill.solid.color;
+              }
+            }
+          }
+          return this.fmtSettings.secondaryBarCard.strokeColor.value.value;
+        })
+        .attr("stroke-width", this.fmtSettings.secondaryBarCard.strokeWidth.value)
+        .style("pointer-events", "all")
         .attr("rx", 2)
         .attr("ry", 2)
         .style("pointer-events", "all");
       // Líneas verticales al final
       this.ganttG
         .selectAll(".bar-secondary-end-marker")
-        .data(
-          this.selectedFormat !== "Mes"
-            ? allBars.filter(d =>
-              d.secondaryStart instanceof Date &&
-              !isNaN(d.secondaryStart.getTime()) &&
-              d.secondaryEnd instanceof Date &&
-              !isNaN(d.secondaryEnd.getTime())
-            )
-            : []
-        )
-        .join("line")
+        .data(allBars.filter(d =>
+          d.secondaryStart instanceof Date &&
+          !isNaN(d.secondaryStart.getTime()) &&
+          d.secondaryEnd instanceof Date &&
+          !isNaN(d.secondaryEnd.getTime())
+        ))
+        .join("rect")
         .attr("class", "bar-secondary-end-marker")
-        .attr("x1", d => x(d.secondaryEnd!))
-        .attr("x2", d => x(d.secondaryEnd!))
-        .attr("y1", d => yScale(d.rowKey)! + yOff + this.barH * 0.5 - 8)
-        .attr("y2", d => yScale(d.rowKey)! + yOff + this.barH * 0.5 + 8)
-        .attr("stroke", d => {
+        .attr("x", d => x(d.secondaryEnd!) - 2)
+        .attr("y", d => {
+          const barHeight = d.isGroup ? 4 : 5;
+          return yScale(d.rowKey)! + yOff + this.barH * 0.5 - barHeight / 2 - 5;
+        })
+        .attr("width", 4)
+        .attr("height", d => {
+          const barHeight = d.isGroup ? 4 : 5;
+          return barHeight + 10;
+        })
+        .attr("fill", d => {
           const baseColor = this.getBarColor(d.rowKey, d.legend);
           const color = d3.color(baseColor);
           if (color) {
@@ -1802,8 +1805,25 @@ export class Visual implements IVisual {
           }
           return "#1a252f";
         })
-        .attr("stroke-width", 3);
-
+        .attr("stroke", d => {
+          if (legendCategory && d.legend) {
+            const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
+            const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
+            if (obj) {
+              const prop: DataViewObjectPropertyIdentifier = {
+                objectName: "secondaryBarCard",
+                propertyName: "strokeColor"
+              };
+              const fill = dataViewObjects.getValue<Fill>(obj, prop);
+              if (fill?.solid?.color) {
+                return fill.solid.color;
+              }
+            }
+          }
+          return this.fmtSettings.secondaryBarCard.strokeColor.value.value;
+        })
+        .attr("stroke-width", this.fmtSettings.secondaryBarCard.strokeWidth.value)
+        .attr("opacity", this.fmtSettings.secondaryBarCard.opacity.value)
 
 
       // === LÍNEA Y TEXTO DE HOY ===
@@ -2400,11 +2420,12 @@ export class Visual implements IVisual {
         return (newX(d) + nextX) / 2;
       });
 
-    this.ganttG
-      .selectAll<SVGLineElement, BarDatum>(".bar-secondary-end-marker")
-      .style("display", this.selectedFormat === "Mes" ? "none" : null)
-      .attr("x1", d => newX(d.secondaryEnd!))
-      .attr("x2", d => newX(d.secondaryEnd!));
+    this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar-secondary-end-marker")
+      .attr("x", d => newX(d.secondaryEnd!) - 2)
+      .attr("y", d => {
+        const barHeight = d.isGroup ? 4 : 5;
+        return this.y(d.rowKey)! + (this.fmtSettings.taskCard.taskHeight.value - this.barH) / 2 + this.barH * 0.5 - barHeight / 2 - 5;
+      });
 
 
     this.axisTopContentG?.selectAll<SVGLineElement, Date>("line")
@@ -2483,7 +2504,25 @@ export class Visual implements IVisual {
           return color.darker(0.3).toString(); // 0.3 ≈ 15% más oscuro
         }
         return d.isGroup ? "#d35400" : "#e67e22"; // fallback
-      });
+      }).attr("stroke", d => {
+        const categorical = this.lastOptions.dataViews[0].categorical;
+        const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
+        if (legendCategory && d.legend) {
+          const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
+          const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
+          if (obj) {
+            const prop: DataViewObjectPropertyIdentifier = {
+              objectName: "secondaryBarCard",
+              propertyName: "strokeColor"
+            };
+            const fill = dataViewObjects.getValue<Fill>(obj, prop);
+            if (fill?.solid?.color) {
+              return fill.solid.color;
+            }
+          }
+        }
+        return this.fmtSettings.secondaryBarCard.strokeColor.value.value;
+      })
 
     const today = new Date();
     this.ganttG
