@@ -93,7 +93,11 @@
         "strokeColor": {
           "displayName": "Color de borde",
           "type": { "fill": { "solid": { "color": true } } }
-        }
+        },
+"endMarkerShape": {
+  "displayName": "Forma del marcador final",
+  "type": { "numeric": true }
+}
       }
     },
     "colorSelector":{"displayName":"Data colors","properties":{

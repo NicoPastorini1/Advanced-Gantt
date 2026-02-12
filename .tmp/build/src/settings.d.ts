@@ -134,6 +134,7 @@ declare class SecondaryBarCardSettings extends SimpleCard {
     barColor: ColorPicker;
     strokeColor: ColorPicker;
     strokeWidth: NumUpDown;
+    endMarkerShape: NumUpDown;
     slices: formattingSettings.Slice[];
 }
 declare class ParentCardSetting extends SimpleCard {
@@ -183,5 +184,6 @@ export declare class VisualFormattingSettingsModel extends Model {
     cards: Card[];
     populateColorSelector(dataPoints: GanttDataPoint[]): void;
     populateLegendDataPointSlices(dataPoints: any[]): void;
+    populateEndMarkerShapes(dataPoints: any[]): void;
 }
 export {};

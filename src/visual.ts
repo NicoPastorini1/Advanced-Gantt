@@ -16,6 +16,7 @@ import { renderXAxisBottom } from "./components/xAxis/renderXAxisBottom";
 import { renderXAxisTop } from "./components/xAxis/renderXAxisTop";
 import { renderLanding } from "./components/renderLanding";
 import { getGroupBarPath } from "./utils/barPaths";
+import { renderEndMarkerShape } from "./utils/endMarkerShapes";
 import { getCompletionByGroup } from "./utils/completionCalculator";
 import IVisual = powerbi.extensibility.IVisual;
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
@@ -29,7 +30,6 @@ import DataViewObjectPropertyIdentifier = powerbi.DataViewObjectPropertyIdentifi
 import ISandboxExtendedColorPalette = powerbi.extensibility.ISandboxExtendedColorPalette;
 import Fill = powerbi.Fill;
 import FormattingId = powerbi.visuals.FormattingId;
-import { dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 
 interface Task {
   id: string;
@@ -239,7 +239,6 @@ export class Visual implements IVisual {
       return this.selectedIds.some(sel => sel.getKey() === d.selectionId.getKey()) ? 1 : 0.3;
     });
 
-    // 👇 AÑADE ESTA SECCIÓN
     this.ganttG.selectAll<SVGLineElement, BarDatum>(".bar-secondary-end-marker").attr("opacity", d => {
       if (!hasSelection) return 1;
       return this.selectedIds.some(sel => sel.getKey() === d.selectionId.getKey()) ? 1 : 0.3;
@@ -323,7 +322,6 @@ export class Visual implements IVisual {
 
     const colorPalette = this.host.colorPalette;
 
-    // 🔹 PASO 1: Cargar colores guardados desde un JSON string
     const colorMapString = dv?.metadata?.objects?.["legendColorState"]?.["colorMap"] as string;
     if (colorMapString) {
       try {
@@ -681,7 +679,6 @@ export class Visual implements IVisual {
 
     const dv: DataView | undefined = opts.dataViews?.[0];
     this.fmtSettings = this.fmtService.populateFormattingSettingsModel(VisualFormattingSettingsModel, dv);
-
 
     this.ganttdataPoints = createSelectorDataPoints(opts, this.host)
     this.legendDataPoints = this.createLegendDataPoints(opts);
@@ -1489,7 +1486,6 @@ export class Visual implements IVisual {
         };
       });
 
-
     const allBars = [...taskBars, ...groupBars].map((bar, i) => ({
       ...bar,
       gradientId: `bar-gradient-${i}`
@@ -1563,7 +1559,6 @@ export class Visual implements IVisual {
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "#666");
-
 
     if (allBars.length) {
       const bars = this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar, .bar-secondary")
@@ -1640,7 +1635,6 @@ export class Visual implements IVisual {
         })
         .attr("stroke-width", 1)
         .style("pointer-events", "all")
-
         .attr("tabindex", 0)
         .on("keydown", (event, d: BarDatum) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -1746,14 +1740,7 @@ export class Visual implements IVisual {
         })
         .attr("height", d => d.isGroup ? 4 : 5)
         .attr("data-bar-height", d => d.isGroup ? 4 : 5)
-        .attr("fill", d => {
-          const baseColor = this.getBarColor(d.rowKey, d.legend);
-          const color = d3.color(baseColor);
-          if (color) {
-            return color.darker(5).toString();
-          }
-          return "#1a252f";
-        })
+        .attr("fill", d => this.getBarColor(d.rowKey, d.legend))
         .attr("stroke", d => {
           if (legendCategory && d.legend) {
             const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
@@ -1776,55 +1763,58 @@ export class Visual implements IVisual {
         .attr("rx", 2)
         .attr("ry", 2)
         .style("pointer-events", "all");
+
       // Líneas verticales al final
-      this.ganttG
-        .selectAll(".bar-secondary-end-marker")
+      const endMarkers = this.ganttG
+        .selectAll<SVGGElement, BarDatum>(".bar-secondary-end-marker")
         .data(allBars.filter(d =>
           d.secondaryStart instanceof Date &&
           !isNaN(d.secondaryStart.getTime()) &&
           d.secondaryEnd instanceof Date &&
           !isNaN(d.secondaryEnd.getTime())
-        ))
-        .join("rect")
+        ), d => d.id)
+        .join("g")
         .attr("class", "bar-secondary-end-marker")
-        .attr("x", d => x(d.secondaryEnd!) - 2)
-        .attr("y", d => {
-          const barHeight = d.isGroup ? 4 : 5;
-          return yScale(d.rowKey)! + yOff + this.barH * 0.5 - barHeight / 2 - 5;
-        })
-        .attr("width", 4)
-        .attr("height", d => {
-          const barHeight = d.isGroup ? 4 : 5;
-          return barHeight + 10;
-        })
-        .attr("fill", d => {
-          const baseColor = this.getBarColor(d.rowKey, d.legend);
-          const color = d3.color(baseColor);
-          if (color) {
-            return color.darker(2).toString();
-          }
-          return "#1a252f";
-        })
-        .attr("stroke", d => {
-          if (legendCategory && d.legend) {
-            const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
-            const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
-            if (obj) {
-              const prop: DataViewObjectPropertyIdentifier = {
-                objectName: "secondaryBarCard",
-                propertyName: "strokeColor"
-              };
-              const fill = dataViewObjects.getValue<Fill>(obj, prop);
-              if (fill?.solid?.color) {
-                return fill.solid.color;
-              }
-            }
-          }
-          return this.fmtSettings.secondaryBarCard.strokeColor.value.value;
-        })
-        .attr("stroke-width", this.fmtSettings.secondaryBarCard.strokeWidth.value)
-        .attr("opacity", this.fmtSettings.secondaryBarCard.opacity.value)
+        .attr("opacity", this.fmtSettings.secondaryBarCard.opacity.value);
 
+      endMarkers.each(function (d) {
+        d3.select(this).selectAll("*").remove();
+
+        const markerX = x(d.secondaryEnd!);
+        const markerY = yScale(d.rowKey)! + yOff + self.barH * 0.5;
+
+        const baseColor = self.getBarColor(d.rowKey, d.legend);
+        const color = d3.color(baseColor);
+        const fillColor = baseColor;
+
+        let strokeColor = self.fmtSettings.secondaryBarCard.strokeColor.value.value;
+        let shapeValue = self.fmtSettings.secondaryBarCard.endMarkerShape.value;
+
+        const taskCategory = self.lastOptions.dataViews[0].categorical.categories[0];
+        const obj = taskCategory.objects?.[d.index];
+
+        if (obj) {
+          const prop: DataViewObjectPropertyIdentifier = {
+            objectName: "secondaryBarCard",
+            propertyName: "endMarkerShape"
+          };
+          const customShape = dataViewObjects.getValue<number>(obj, prop);
+          if (customShape !== undefined) {
+            shapeValue = customShape;
+          }
+        }
+
+        renderEndMarkerShape(
+          d3.select(this),
+          shapeValue,
+          markerX,
+          markerY,
+          8,
+          fillColor,
+          strokeColor,
+          self.fmtSettings.secondaryBarCard.strokeWidth.value
+        );
+      });
 
       // === LÍNEA Y TEXTO DE HOY ===
       const today = new Date();
@@ -1972,7 +1962,6 @@ export class Visual implements IVisual {
         },
         (d: BarDatum) => d.selectionId
       );
-
     }
 
     const depLines: {
@@ -2420,13 +2409,66 @@ export class Visual implements IVisual {
         return (newX(d) + nextX) / 2;
       });
 
-    this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar-secondary-end-marker")
-      .attr("x", d => newX(d.secondaryEnd!) - 2)
-      .attr("y", d => {
+    const self = this;
+    this.ganttG.selectAll<SVGGElement, BarDatum>(".bar-secondary-end-marker")
+      .each(function (d) {
+        d3.select(this).selectAll("*").remove();
+        const markerX = newX(d.secondaryEnd!);
         const barHeight = d.isGroup ? 4 : 5;
-        return this.y(d.rowKey)! + (this.fmtSettings.taskCard.taskHeight.value - this.barH) / 2 + this.barH * 0.5 - barHeight / 2 - 5;
-      });
+        const markerY = self.y(d.rowKey)! + (self.fmtSettings.taskCard.taskHeight.value - self.barH) / 2 + self.barH * 0.5;
 
+        const baseColor = self.getBarColor(d.rowKey, d.legend);
+        const color = d3.color(baseColor);
+        const fillColor = color ? color.darker(2).toString() : "#1a252f";
+
+        const categorical = self.lastOptions.dataViews[0].categorical;
+        const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
+
+        let strokeColor = self.fmtSettings.secondaryBarCard.strokeColor.value.value;
+        if (legendCategory && d.legend) {
+          const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
+          const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
+          if (obj) {
+            const prop: DataViewObjectPropertyIdentifier = {
+              objectName: "secondaryBarCard",
+              propertyName: "strokeColor"
+            };
+            const fill = dataViewObjects.getValue<Fill>(obj, prop);
+            if (fill?.solid?.color) {
+              strokeColor = fill.solid.color;
+            }
+          }
+        }
+
+        d3.select(this).selectAll("*").remove();
+
+        let shapeValue = self.fmtSettings.secondaryBarCard.endMarkerShape.value;
+
+        const taskCategory = self.lastOptions.dataViews[0].categorical.categories[0];
+        const obj = taskCategory.objects?.[d.index];
+
+        if (obj) {
+          const prop: DataViewObjectPropertyIdentifier = {
+            objectName: "secondaryBarCard",
+            propertyName: "endMarkerShape"
+          };
+          const customShape = dataViewObjects.getValue<number>(obj, prop);
+          if (customShape !== undefined) {
+            shapeValue = customShape;
+          }
+        }
+
+        renderEndMarkerShape(
+          d3.select(this),
+          shapeValue,
+          markerX,
+          markerY,
+          8,
+          fillColor,
+          strokeColor,
+          self.fmtSettings.secondaryBarCard.strokeWidth.value
+        );
+      });
 
     this.axisTopContentG?.selectAll<SVGLineElement, Date>("line")
       .attr("x1", d => newX(d))
@@ -2501,7 +2543,7 @@ export class Visual implements IVisual {
         const baseColor = this.getBarColor(d.rowKey, d.legend);
         const color = d3.color(baseColor);
         if (color) {
-          return color.darker(0.3).toString(); // 0.3 ≈ 15% más oscuro
+          return color.darker(2).toString(); // 0.3 ≈ 15% más oscuro
         }
         return d.isGroup ? "#d35400" : "#e67e22"; // fallback
       }).attr("stroke", d => {
@@ -2535,8 +2577,6 @@ export class Visual implements IVisual {
       .attr("x", d => newX(d) + 10);
 
   }
-
-
 
   private updateSelectedFormatFromZoom(t: d3.ZoomTransform, width: number): FormatType {
     const [start, end] = this.xOriginal.domain();

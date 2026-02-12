@@ -532,17 +532,30 @@ class SecondaryBarCardSettings extends SimpleCard {
     });
 
     public strokeColor: ColorPicker = new ColorPicker({
-    name: "strokeColor",
-    displayName: "Color de borde",
-    value: { value: "#000000" },
-    selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
-    instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
-});
+        name: "strokeColor",
+        displayName: "Color de borde",
+        value: { value: "#000000" },
+        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
+    });
 
     public strokeWidth: NumUpDown = new NumUpDown({
         name: "strokeWidth",
         displayName: "Ancho de borde",
         value: 3
+    });
+
+    public endMarkerShape: NumUpDown = new NumUpDown({
+        name: "endMarkerShape",
+        displayName: "Forma del marcador final",
+        description: "1=Flecha, 2=Círculo, 3=Rombo, 4=Barra, 5=Desactivado",
+        value: 1,
+        options: {
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 },
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 5 }
+        },
+        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals), // cuando le borro esto si funciona el manual
+        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule // cuando le borro esto si funciona el manual
     });
 
     public slices: formattingSettings.Slice[] = [
@@ -551,7 +564,8 @@ class SecondaryBarCardSettings extends SimpleCard {
         this.opacity,
         this.barColor,
         this.strokeColor,
-        this.strokeWidth
+        this.strokeWidth,
+        this.endMarkerShape
     ];
 }
 /* ────────────── Parent ───────────────────── */
@@ -710,6 +724,28 @@ export class VisualFormattingSettingsModel extends Model {
                     name: "fill",
                     displayName: dataPoint.legend,
                     value: { value: dataPoint.color },
+                    selector: dataPoint.selectionId.getSelector()
+                }));
+            });
+        }
+    }
+
+    populateEndMarkerShapes(dataPoints: any[]) {
+        const baseSlices = this.secondaryBarCard.slices.filter(s => s.name !== "endMarkerShape");
+
+        this.secondaryBarCard.slices = [...baseSlices];
+
+        if (dataPoints && dataPoints.length > 0) {
+            dataPoints.forEach(dataPoint => {
+                this.secondaryBarCard.slices.push(new NumUpDown({
+                    name: "endMarkerShape",
+                    displayName: `Forma - ${dataPoint.legend}`,
+                    description: "1=Flecha, 2=Círculo, 3=Rombo, 4=Barra, 5=Desactivado",
+                    value: dataPoint.objects?.secondaryBarCard.endMarkerShape,
+                    options: {
+                        minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 },
+                        maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 5 }
+                    },
                     selector: dataPoint.selectionId.getSelector()
                 }));
             });
