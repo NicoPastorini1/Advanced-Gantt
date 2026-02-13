@@ -513,7 +513,7 @@ class SecondaryBarCardSettings extends SimpleCard {
         name: "barHeight",
         displayName: "Alto de barra",
         description: "Altura en píxeles; 0 = automático",
-        value: 30
+        value: 1
     });
 
     public opacity: formattingSettings.Slider = new formattingSettings.Slider({
@@ -545,6 +545,17 @@ class SecondaryBarCardSettings extends SimpleCard {
         value: 3
     });
 
+    public lineStyle = new formattingSettings.ItemDropdown({
+        name: "lineStyle",
+        displayName: "Estilo de línea",
+        items: [
+            { displayName: "Sólida", value: "solid" },
+            { displayName: "Discontinua", value: "dash" },
+            { displayName: "Punteada", value: "dot" }
+        ],
+        value: { displayName: "Sólida", value: "solid" }
+    });
+
     public endMarkerShape: NumUpDown = new NumUpDown({
         name: "endMarkerShape",
         displayName: "Forma del marcador final",
@@ -554,8 +565,18 @@ class SecondaryBarCardSettings extends SimpleCard {
             minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 },
             maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 5 }
         },
-        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals), // cuando le borro esto si funciona el manual
-        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule // cuando le borro esto si funciona el manual
+        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    public endMarkerSize: NumUpDown = new NumUpDown({
+        name: "endMarkerSize",
+        displayName: "Tamano Marcador Final",
+        value: 4,
+        options: {
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 },
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 9 }
+        }
     });
 
     public slices: formattingSettings.Slice[] = [
@@ -565,7 +586,9 @@ class SecondaryBarCardSettings extends SimpleCard {
         this.barColor,
         this.strokeColor,
         this.strokeWidth,
-        this.endMarkerShape
+        this.lineStyle,
+        this.endMarkerShape,
+        this.endMarkerSize
     ];
 }
 /* ────────────── Parent ───────────────────── */

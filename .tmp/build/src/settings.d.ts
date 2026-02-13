@@ -134,7 +134,9 @@ declare class SecondaryBarCardSettings extends SimpleCard {
     barColor: ColorPicker;
     strokeColor: ColorPicker;
     strokeWidth: NumUpDown;
+    lineStyle: formattingSettings.ItemDropdown;
     endMarkerShape: NumUpDown;
+    endMarkerSize: NumUpDown;
     slices: formattingSettings.Slice[];
 }
 declare class ParentCardSetting extends SimpleCard {

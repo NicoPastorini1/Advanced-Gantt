@@ -86,6 +86,16 @@
           "displayName": "Ancho de borde",
           "type": { "numeric": true }
         },
+        "lineStyle": {
+  "displayName": "Estilo de línea",
+  "type": {
+    "enumeration": [
+      { "value": "solid", "displayName": "Sólida" },
+      { "value": "dash", "displayName": "Discontinua" },
+      { "value": "dot", "displayName": "Punteada" }
+    ]
+  }
+},
         "barColor": {
           "displayName": "Color",
           "type": { "fill": { "solid": { "color": true } } }
@@ -97,7 +107,11 @@
 "endMarkerShape": {
   "displayName": "Forma del marcador final",
   "type": { "numeric": true }
-}
+},
+"endMarkerSize": {
+          "displayName": "Ancho de borde",
+          "type": { "numeric": true }
+        }
       }
     },
     "colorSelector":{"displayName":"Data colors","properties":{
