@@ -62,19 +62,12 @@ src/
 
 ---
 
-## 📸 Ejemplo
-
-> <img width="1196" height="576" alt="image" src="https://github.com/user-attachments/assets/2ba7ce39-8a81-4c6b-8887-ee49c3d4a292" />
-
-
----
-
 ## ⚙️ Instalación y uso
 
 1. Clonar el repositorio:  
    ```bash
-   git clone https://github.com/<usuario>/<repo>.git
-   cd <repo>
+   git clone [https://github.com/<usuario>/<repo>.git](https://github.com/NicoPastorini1/Advanced-Gantt)
+   cd Advanced-Gantt
    ```
 
 2. Instalar dependencias:  
@@ -96,15 +89,6 @@ src/
 
 ---
 <img width="1312" height="587" alt="image" src="https://github.com/user-attachments/assets/8e6a2f9e-ac10-467d-a61a-b69623bd8e2b" />
-
-
-## 📌 Roadmap
-
-- [ ] Ajustes de rendimiento en eventos de scroll.  
-- [ ] Mejorar renderizado de dependencias con curvas.  
-- [ ] Opciones avanzadas de estilo de barra en el format pane.  
-- [ ] Exportar a imagen/PNG desde el visual.  
-
 ---
 
 ## 👤 Autor
