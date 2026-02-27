@@ -69,6 +69,7 @@ export interface BarDatum {
   selectionId: ISelectionId;
   legend?: string;
   gradientId?: string;
+  resolvedColor?: string;
 }
 
 export interface GanttDataPoint {
@@ -118,7 +119,14 @@ function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHos
       .withCategory(parent, index)
       .createSelectionId();
 
-    const color = getColumnColorByIndex(parent, index, colorPalette, "colorSelector");
+    const prop: DataViewObjectPropertyIdentifier = {
+      objectName: "colorSelector",
+      propertyName: "fill"
+    };
+
+    const obj = parent.objects?.[index];
+    const colorFromObj = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
+    const color = colorFromObj ?? colorPalette.getColor(`${parent.values[index]}`).value;
 
     dataPoints.push({
       task: "",
@@ -143,12 +151,6 @@ function getColumnColorByIndex(
     return colorPalette.background.value;
   }
 
-  const defaultColor: Fill = {
-    solid: {
-      color: colorPalette.getColor(`${category.values[index]}`).value,
-    }
-  };
-
   const prop: DataViewObjectPropertyIdentifier = {
     objectName: objectName,
     propertyName: "fill"
@@ -159,7 +161,11 @@ function getColumnColorByIndex(
     colorFromObjects = dataViewObjects.getValue(category?.objects[index], prop);
   }
 
-  return colorFromObjects?.solid.color ?? defaultColor.solid.color;
+  if (colorFromObjects?.solid.color) {
+    return colorFromObjects.solid.color;
+  }
+
+  return colorPalette.getColor(`${category.values[index]}`).value;
 }
 
 type FormatType = 'Hora' | 'Día' | 'Mes' | 'Año' | 'Todo';
@@ -220,6 +226,8 @@ export class Visual implements IVisual {
   private legendColorStore = new Map<string, string>();
   private dateFormatter = d3.timeFormat("%d/%m/%Y %H:%M");
   private computedColWidths: number[] | null = null;
+  private secondaryBarOffsets = new Map<string, number>();
+  private parentColorStore = new Map<string, string>();
 
   private updateBarOpacities() {
     const hasSelection = this.selectedIds.length > 0;
@@ -403,7 +411,14 @@ export class Visual implements IVisual {
 
       let color: string;
 
-      if (this.legendColorStore.has(value)) {
+      const objIndex = indexByLegend.get(value)!;
+      const obj = legendCategory.objects?.[objIndex];
+      const conditionalColor = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
+
+      if (conditionalColor) {
+        color = conditionalColor;
+        this.legendColorStore.set(value, color);
+      } else if (this.legendColorStore.has(value)) {
         color = this.legendColorStore.get(value)!;
       } else {
         color = colorPalette.getColor(value).value;
@@ -692,17 +707,17 @@ export class Visual implements IVisual {
     const { width, height } = opts.viewport;
     this.lastOptions = opts;
 
-    if (this.legendDataPoints.length > 0) {
+    if (this.legendDataPoints.length > 0 && this.fmtSettings.legend.show.value) {
       const legendData = {
         dataPoints: this.legendDataPoints.map(dp => ({
           label: dp.legend,
           color: dp.color,
-          icon: 1,
+          icon: this.fmtSettings.legend.fontSize.value,
           identity: dp.selectionId,
           selected: false
         })),
-        fontSize: 10,
-        labelColor: "#000000"
+        fontSize: this.fmtSettings.legend.fontSize.value,
+        labelColor: this.fmtSettings.legend.fontColor.value.value,
       };
 
       this.legend.drawLegend(legendData, { width, height });
@@ -712,7 +727,7 @@ export class Visual implements IVisual {
 
     d3.select(this.container)
       .select(".legend")
-      .style("display", "block")
+      .style("display", this.fmtSettings.legend.show.value ? "block" : "none")
       .style("white-space", "normal");
 
 
@@ -1425,24 +1440,30 @@ export class Visual implements IVisual {
         const entries = (task as any).legendEntries || [task];
 
         entries.forEach((entry: Task) => {
-          if (entry.start && entry.end) {
-            taskBars.push({
-              id: `${entry.id}_${entry.legend || 'default'}`,
-              start: entry.start,
-              end: entry.end,
-              rowKey: r.rowKey,
-              isGroup: false,
-              index: entry.index,
-              completion: entry.completion,
-              secondaryStart: entry.secondaryStart ? new Date(entry.secondaryStart) : undefined,
-              secondaryEnd: entry.secondaryEnd ? new Date(entry.secondaryEnd) : undefined,
-              selectionId: this.host.createSelectionIdBuilder()
-                .withCategory(taskCategory, entry.index)
-                .createSelectionId() as ISelectionId,
-              legend: entry.legend
-            });
-          }
-        });
+  if (entry.start && entry.end) {
+    const legendCat = categorical.categories.find(c => c.source.roles?.legend);
+    const prop: DataViewObjectPropertyIdentifier = { objectName: "legendColorSelector", propertyName: "fill" };
+    const obj = legendCat?.objects?.[entry.index];
+    const fxColor = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
+
+    taskBars.push({
+      id: `${entry.id}_${entry.legend || 'default'}`,
+      start: entry.start,
+      end: entry.end,
+      rowKey: r.rowKey,
+      isGroup: false,
+      index: entry.index,
+      completion: entry.completion,
+      secondaryStart: entry.secondaryStart ? new Date(entry.secondaryStart) : undefined,
+      secondaryEnd: entry.secondaryEnd ? new Date(entry.secondaryEnd) : undefined,
+      selectionId: this.host.createSelectionIdBuilder()
+        .withCategory(taskCategory, entry.index)
+        .createSelectionId() as ISelectionId,
+      legend: entry.legend,
+      resolvedColor: fxColor
+    });
+  }
+});
       });
 
     const parentCategory = categorical.categories[1];
@@ -1503,7 +1524,7 @@ export class Visual implements IVisual {
         key = d.rowKey.split("|")[1];
       }
 
-      const baseColorStr = this.getBarColor(d.rowKey, d.legend);
+      const baseColorStr = (d as BarDatum).resolvedColor ?? this.getBarColor(d.rowKey, d.legend);
       const colorBase = d3.color(baseColorStr)!;
       const colorClaro = d3.interpolateRgb(colorBase, d3.color("#ffffff"))(0.5);
 
@@ -1584,7 +1605,7 @@ export class Visual implements IVisual {
         .attr("fill", d => `url(#${d.gradientId})`)
         .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
         .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
-        .attr("stroke", d => this.getBarColor(d.rowKey, d.legend))
+        .attr("stroke", d => d.resolvedColor ?? this.getBarColor(d.rowKey, d.legend))
         .attr("stroke-width", (barCfg.barGroup.slices.find(s => s.name === "strokeWidth") as formattingSettings.Slider).value)
         .attr("tabindex", 0)
         .on("keydown", (event, d: BarDatum) => {
@@ -1710,7 +1731,7 @@ export class Visual implements IVisual {
           if (c >= 100) return baseWidth;
           return baseWidth * (c > 1 ? c / 100 : c);
         })
-        .attr("fill", d => this.getBarColor(d.rowKey, d.legend))
+        .attr("fill", d => d.resolvedColor ?? this.getBarColor(d.rowKey, d.legend))
         .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
         .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value);
 
@@ -1729,28 +1750,42 @@ export class Visual implements IVisual {
         .attr("class", "bar-secondary")
         .attr("x1", d => x(d.secondaryStart!))
         .attr("x2", d => x(d.secondaryEnd!))
-        .attr("y1", d => yScale(d.rowKey)! + yOff + this.barH * 0.5)
-        .attr("y2", d => yScale(d.rowKey)! + yOff + this.barH * 0.5)
+        .attr("y1", d => {
+        if (!this.secondaryBarOffsets.has(d.id)) {
+          const secH = this.fmtSettings.secondaryBarCard.barHeight.value;
+          const margin = secH;
+          const arr = new Uint32Array(1);
+          window.crypto.getRandomValues(arr);
+          const rand = arr[0] / (0xFFFFFFFF + 1);
+          this.secondaryBarOffsets.set(d.id, margin + rand * (this.barH - secH - margin));
+        }
+        return yScale(d.rowKey)! + yOff + this.secondaryBarOffsets.get(d.id)!;
+      })
+      .attr("y2", d => yScale(d.rowKey)! + yOff + this.secondaryBarOffsets.get(d.id)!)
         .attr("stroke", d => {
-          let strokeColor = this.fmtSettings.secondaryBarCard.strokeColor.value.value;
+  if (d.isGroup) {
+    return this.getBarColor(d.rowKey, d.legend);
+  }
 
-          if (legendCategory && d.legend) {
-            const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
-            const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
-            if (obj) {
-              const prop: DataViewObjectPropertyIdentifier = {
-                objectName: "secondaryBarCard",
-                propertyName: "strokeColor"
-              };
-              const fill = dataViewObjects.getValue<Fill>(obj, prop);
-              if (fill?.solid?.color) {
-                strokeColor = fill.solid.color;
-              }
-            }
-          }
+  let strokeColor = this.fmtSettings.secondaryBarCard.strokeColor.value.value;
 
-          return strokeColor;
-        })
+  if (legendCategory && d.legend) {
+    const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
+    const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
+    if (obj) {
+      const prop: DataViewObjectPropertyIdentifier = {
+        objectName: "secondaryBarCard",
+        propertyName: "strokeColor"
+      };
+      const fill = dataViewObjects.getValue<Fill>(obj, prop);
+      if (fill?.solid?.color) {
+        strokeColor = fill.solid.color;
+      }
+    }
+  }
+
+  return strokeColor;
+})
         .attr("stroke-width", this.fmtSettings.secondaryBarCard.barHeight.value)
         .attr("stroke-dasharray", () => {
           const style = this.fmtSettings.secondaryBarCard.lineStyle.value.value;
@@ -2270,7 +2305,7 @@ export class Visual implements IVisual {
         duration: groupDuration
       });
 
-      const exp = cache.get(parent!) ?? true;
+      const exp = cache.get(parent!) ?? false;
       if (exp) {
         list.forEach(t => {
           rows.push({
@@ -2425,7 +2460,8 @@ export class Visual implements IVisual {
         d3.select(this).selectAll("*").remove();
         const markerX = newX(d.secondaryEnd!);
         const barHeight = d.isGroup ? 4 : 5;
-        const markerY = self.y(d.rowKey)! + (self.fmtSettings.taskCard.taskHeight.value - self.barH) / 2 + self.barH * 0.5;
+        const yOff = (self.fmtSettings.taskCard.taskHeight.value - self.barH) / 2;
+        const markerY = self.y(d.rowKey)! + yOff + (self.secondaryBarOffsets.get(d.id) ?? self.barH * 0.5);
 
         const baseColor = self.getBarColor(d.rowKey, d.legend);
         const color = d3.color(baseColor);
@@ -2547,6 +2583,10 @@ export class Visual implements IVisual {
       .attr("x1", d => newX(d.secondaryStart!))
       .attr("x2", d => newX(d.secondaryEnd!))
       .attr("stroke", d => {
+        if (d.isGroup) {
+          return this.getBarColor(d.rowKey, d.legend);
+        }
+
         const categorical = this.lastOptions.dataViews[0].categorical;
         const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
         let strokeColor = this.fmtSettings.secondaryBarCard.strokeColor.value.value;

@@ -24,7 +24,7 @@
       "categories":{
         "dataReductionAlgorithm": {
           "top": {
-            "count": 3000
+            "count": 1000
           }
         },
         "select":[
@@ -161,6 +161,15 @@
       "strokeColor":{"type":{"fill":{"solid":{"color":true}}}},
       "strokeWidth":{"type":{"numeric":true}}
     }},
+    "legend": {
+  "displayName": "Leyenda",
+  "properties": {
+    "show": { "displayName": "Mostrar", "type": { "bool": true } },
+    "fontColor": { "displayName": "Color", "type": { "fill": { "solid": { "color": true } } } },
+    "fontSize": { "displayName": "Tamaño", "type": { "formatting": { "fontSize": true } } },
+    "fontFamily": { "displayName": "Fuente", "type": { "formatting": { "fontFamily": true } } }
+  }
+},
     "taskStyle":{"displayName":"Tareas","properties":{
       "show":{"displayName":"Mostrar tareas","type":{"bool":true}},
       "showSecondary":{"displayName":"Mostrar campos de Secondary","type":{"bool":true}},

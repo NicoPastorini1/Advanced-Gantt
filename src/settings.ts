@@ -93,9 +93,9 @@ class LegendCardSettings extends formattingSettings.SimpleCard {
     public fontSize = new formattingSettings.NumUpDown({
         name: "fontSize",
         displayName: "Tamaño de fuente",
-        value: 12,
+        value: 10,
         options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 8 },
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 },
             maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 24 }
         }
     });
@@ -103,7 +103,7 @@ class LegendCardSettings extends formattingSettings.SimpleCard {
     public fontColor = new formattingSettings.ColorPicker({
         name: "fontColor",
         displayName: "Color de texto",
-        value: { value: "#333333" }
+        value: { value: "#161616" }
     });
 
     public backgroundColor = new formattingSettings.ColorPicker({
@@ -724,19 +724,20 @@ export class VisualFormattingSettingsModel extends Model {
     ];
 
     populateColorSelector(dataPoints: GanttDataPoint[]) {
-        this.colorSelector.slices = [];
-        const slices: Slice[] = this.colorSelector.slices;
-        if (dataPoints) {
-            dataPoints.forEach(dataPoint => {
-                slices.push(new ColorPicker({
-                    name: "fill",
-                    displayName: dataPoint.parent,
-                    value: { value: dataPoint.color },
-                    selector: dataPoint.selectionId.getSelector(),
-                }));
-            });
-        }
+    this.colorSelector.slices = [];
+    const slices: Slice[] = this.colorSelector.slices;
+    if (dataPoints) {
+        dataPoints.forEach(dataPoint => {
+            slices.push(new ColorPicker({
+                name: "fill",
+                displayName: dataPoint.parent,
+                value: { value: dataPoint.color },
+                selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+                instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule,
+            }));
+        });
     }
+}
 
     populateLegendDataPointSlices(dataPoints: any[]) {
         this.legendDataPoint.slices = [];
@@ -747,7 +748,8 @@ export class VisualFormattingSettingsModel extends Model {
                     name: "fill",
                     displayName: dataPoint.legend,
                     value: { value: dataPoint.color },
-                    selector: dataPoint.selectionId.getSelector()
+                    selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
+                    instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
                 }));
             });
         }

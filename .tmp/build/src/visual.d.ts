@@ -17,6 +17,7 @@ export interface BarDatum {
     selectionId: ISelectionId;
     legend?: string;
     gradientId?: string;
+    resolvedColor?: string;
 }
 export interface GanttDataPoint {
     task: string;
@@ -81,6 +82,8 @@ export declare class Visual implements IVisual {
     private legendColorStore;
     private dateFormatter;
     private computedColWidths;
+    private secondaryBarOffsets;
+    private parentColorStore;
     private updateBarOpacities;
     private computeInnerW;
     private getBarColor;
