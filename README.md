@@ -88,7 +88,8 @@ src/
 5. Importar el `.pbiviz` resultante en Power BI.
 
 ---
-<img width="1312" height="587" alt="image" src="https://github.com/user-attachments/assets/8e6a2f9e-ac10-467d-a61a-b69623bd8e2b" />
+<img width="1263" height="659" alt="image" src="https://github.com/user-attachments/assets/0c30f33b-7293-4ee5-87cb-a0d750517804" />
+
 ---
 
 ## 👤 Autor
