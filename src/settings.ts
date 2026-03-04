@@ -640,6 +640,64 @@ class WeekendCardSettings extends SimpleCard {
     displayName = "Weekend";
     slices: formattingSettings.Slice[] = [this.show, this.markerColor]
 }
+
+class TimelineCardSettings extends SimpleCard {
+    name: string = "timelineCard";
+    displayName: string = "Timeline";
+
+    public show: ToggleSwitch = new ToggleSwitch({
+        name: "show",
+        displayName: "Mostrar timeline",
+        value: false
+    });
+
+    public tickColor: ColorPicker = new ColorPicker({
+        name: "tickColor",
+        displayName: "Color de tick",
+        value: { value: "#FF0000" }
+    });
+
+    public tickSize: NumUpDown = new NumUpDown({
+        name: "tickSize",
+        displayName: "Tamaño de tick",
+        value: 5,
+        options: {
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 },
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 }
+        }
+    });
+
+    public showLine: ToggleSwitch = new ToggleSwitch({
+        name: "showLine",
+        displayName: "Mostrar línea entre ticks",
+        value: true
+    });
+
+    public lineColor: ColorPicker = new ColorPicker({
+        name: "lineColor",
+        displayName: "Color de línea",
+        value: { value: "#FF0000" }
+    });
+
+    public lineWidth: NumUpDown = new NumUpDown({
+        name: "lineWidth",
+        displayName: "Ancho de línea",
+        value: 1,
+        options: {
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 },
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 10 }
+        }
+    });
+
+    public slices: FormattingSettingsSlice[] = [
+        this.show,
+        this.tickColor,
+        this.tickSize,
+        this.showLine,
+        this.lineColor,
+        this.lineWidth
+    ];
+}
 /* ___ Completion Label _____________*/
 class completionCardSettings extends SimpleCard {
     name: string = "completionStyleGroup";
@@ -701,6 +759,7 @@ export class VisualFormattingSettingsModel extends Model {
     colorSelector = new ColorSelectorCardSettings();
     legendDataPoint = new LegendDataPointCardSettings();
     weekendCard = new WeekendCardSettings();
+    timelineCard = new TimelineCardSettings();
     completionCard = new completionCardSettings();
     timeMarkerCard = new TimeMarkerCardSettings();
     legend = new LegendCardSettings();
@@ -720,7 +779,8 @@ export class VisualFormattingSettingsModel extends Model {
         this.completionCard,
         this.timeMarkerCard,
         this.legend,
-        this.labelCard
+        this.labelCard,
+        this.timelineCard
     ];
 
     populateColorSelector(dataPoints: GanttDataPoint[]) {

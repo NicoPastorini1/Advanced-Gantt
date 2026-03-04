@@ -12,13 +12,14 @@
     {"displayName":"Completion","name":"completion","kind":"Measure"},
     {"displayName":"Tooltips","name":"tooltips","kind":"Measure"},
     {"displayName": "Legend", "name": "legend", "kind": "GroupingOrMeasure"}
+    ,{"displayName":"Timeline Date","name":"timelineDate","kind":"Measure"}
   ],
   "dataViewMappings":[{
     "conditions":[{
       "parent":{"max":1},"startDate":{"max":1},"endDate":{"max":1},
       "secondaryEnd":{"max":1},"secondaryStart":{"max":1},
       "predecessor":{"max":1},"completion":{"max":1},
-      "columns":{"max":5}
+      "columns":{"max":5},"timelineDate":{"max":1}
     }],
     "categorical":{
       "categories":{
@@ -42,6 +43,7 @@
         {"bind":{"to":"secondaryStart"}},
         {"bind":{"to":"secondaryEnd"}},
         {"bind":{"to":"completion"}}
+        ,{"bind":{"to":"timelineDate"}}
       ]}
     }
   }],
@@ -203,6 +205,18 @@
             "text": true
           }
         }
+      }
+    }
+    ,
+    "timelineCard": {
+      "displayName": "Timeline",
+      "properties": {
+        "show": { "displayName": "Mostrar timeline", "type": { "bool": true } },
+        "tickColor": { "displayName": "Color de tick", "type": { "fill": { "solid": { "color": true } } } },
+        "tickSize": { "displayName": "Tamaño de tick", "type": { "numeric": true } },
+        "showLine": { "displayName": "Mostrar línea", "type": { "bool": true } },
+        "lineColor": { "displayName": "Color de línea", "type": { "fill": { "solid": { "color": true } } } },
+        "lineWidth": { "displayName": "Ancho de línea", "type": { "numeric": true } }
       }
     }
   },

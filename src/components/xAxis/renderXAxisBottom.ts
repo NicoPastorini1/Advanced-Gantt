@@ -1,3 +1,5 @@
+
+//render x axis bottom
 import * as d3 from "d3";
 import { VisualFormattingSettingsModel } from "../../settings";
 import { esLocale } from "../../utils/esLocale";
@@ -98,9 +100,9 @@ export function renderXAxisBottom(params: {
     .attr("x1", d => xScale(d))
     .attr("x2", d => xScale(d))
     .attr("y1", 30)
-    .attr("y2", 0)
-    .attr("stroke", "#bbb")
-    .attr("stroke-width", 1.5);
+    .attr("y2", d => (selectedFormat === "Hora" && d.getHours() === 0) ? -15 : 0)
+    .attr("stroke", d => (selectedFormat === "Hora" && d.getHours() === 0) ? "#888" : "#bbb")
+    .attr("stroke-width", d => (selectedFormat === "Hora" && d.getHours() === 0) ? 2 : 1.5);
 
   svg.append("line")
     .attr("class", "x-domain")

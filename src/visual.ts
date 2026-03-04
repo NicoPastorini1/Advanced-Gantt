@@ -44,6 +44,7 @@ interface Task {
   index: number;
   extraCols?: string[];
   legend?: string;
+  timelineDate?: Date;
 }
 
 interface VisualRow {
@@ -1923,6 +1924,55 @@ export class Visual implements IVisual {
         .attr("text-anchor", "start")
         .attr("dominant-baseline", "middle");
 
+        // === TIMELINE MARKERS ===
+      if (this.fmtSettings.timelineCard.show.value) {
+        const tlFmt = this.fmtSettings.timelineCard;
+
+        const timelineRows = visibleRows.filter(r =>
+          !r.isGroup &&
+          r.task?.timelineDate instanceof Date &&
+          !isNaN(r.task.timelineDate.getTime())
+        );
+
+        const byParent = d3.group(timelineRows, r => r.task!.parent);
+
+        byParent.forEach((rows) => {
+          const sorted = rows.slice().sort((a, b) =>
+            visibleRows.indexOf(a) - visibleRows.indexOf(b)
+          );
+
+          const s = tlFmt.tickSize.value;
+          if (tlFmt.showLine.value && sorted.length > 1) {
+            for (let idx = 0; idx < sorted.length - 1; idx++) {
+              const rA = sorted[idx];
+              const rB = sorted[idx + 1];
+              this.ganttG.append("line")
+                .attr("class", "timeline-connector")
+                .attr("x1", x(rA.task!.timelineDate!))
+                .attr("y1", yScale(rA.rowKey)! + yOff - s)
+                .attr("x2", x(rB.task!.timelineDate!))
+                .attr("y2", yScale(rB.rowKey)! + yOff - s)
+                .attr("stroke", tlFmt.lineColor.value.value)
+                .attr("stroke-width", tlFmt.lineWidth.value)
+                .style("pointer-events", "none");
+            }
+          }
+
+          sorted.forEach(row => {
+            const s = tlFmt.tickSize.value;
+            this.ganttG.append("rect")
+              .attr("class", "timeline-tick")
+              .attr("x", x(row.task!.timelineDate!) - s)
+              .attr("y", yScale(row.rowKey)! + yOff - s * 2)
+              .attr("width", s * 2)
+              .attr("height", s * 2)
+              .attr("fill", tlFmt.tickColor.value.value)
+              .attr("stroke", tlFmt.tickColor.value.value)
+              .style("pointer-events", "none");
+          });
+        });
+      }
+
       // === BARRA DE GRUPO ===
       bars.filter(d =>
         d.isGroup &&
@@ -2235,6 +2285,12 @@ export class Visual implements IVisual {
 
       const legendText = legendCol ? String(legendCol.values[i] ?? "") : undefined;
 
+      const timelineDateVal = cat.values.find(v => v.source.roles?.timelineDate);
+      const rawTimelineDate = timelineDateVal?.values?.[i];
+      const timelineDate = rawTimelineDate
+        ? new Date(rawTimelineDate as string | number)
+        : undefined;
+
       const task: Task = {
         id: taskFields.join(" | "),
         parent: parentTxt,
@@ -2247,7 +2303,8 @@ export class Visual implements IVisual {
         predecessor,
         index: i,
         extraCols: paddedExtraCols,
-        legend: legendText
+        legend: legendText,
+        timelineDate: timelineDate && !isNaN(timelineDate.getTime()) ? timelineDate : undefined
       };
 
       out.push(task);
@@ -2274,6 +2331,7 @@ export class Visual implements IVisual {
       const firstEntry = entries[0];
       uniqueTasks.push({
         ...firstEntry,
+        timelineDate: entries.find(e => e.timelineDate instanceof Date)?.timelineDate,
         legendEntries: entries
       } as any);
     });
@@ -2625,6 +2683,65 @@ export class Visual implements IVisual {
     this.ganttG
       .selectAll<SVGTextElement, Date>(".today-label")
       .attr("x", d => newX(d) + 10);
+
+      this.ganttG.selectAll(".timeline-connector").remove();
+    this.ganttG.selectAll(".timeline-tick").remove();
+
+    if (this.fmtSettings.timelineCard.show.value) {
+      const tlFmt = this.fmtSettings.timelineCard;
+      const visibleKeys = this.y.domain();
+      const yOffLocal = (this.fmtSettings.taskCard.taskHeight.value - this.barH) / 2;
+
+      const timelineRows = this.cacheTasks
+        .filter(t =>
+          t.timelineDate instanceof Date &&
+          !isNaN(t.timelineDate.getTime()) &&
+          visibleKeys.includes(`T:${t.id}|${t.parent}`)
+        )
+        .map(t => ({
+          rowKey: `T:${t.id}|${t.parent}`,
+          parent: t.parent,
+          timelineDate: t.timelineDate!
+        }));
+
+      const byParent = d3.group(timelineRows, r => r.parent);
+
+      byParent.forEach((rows) => {
+        const sorted = rows.slice().sort((a, b) =>
+          visibleKeys.indexOf(a.rowKey) - visibleKeys.indexOf(b.rowKey)
+        );
+
+        const s = tlFmt.tickSize.value;
+        if (tlFmt.showLine.value && sorted.length > 1) {
+          for (let idx = 0; idx < sorted.length - 1; idx++) {
+            const rA = sorted[idx];
+            const rB = sorted[idx + 1];
+            this.ganttG.append("line")
+              .attr("class", "timeline-connector")
+              .attr("x1", newX(rA.timelineDate))
+              .attr("y1", y(rA.rowKey)! + yOffLocal - s)
+              .attr("x2", newX(rB.timelineDate))
+              .attr("y2", y(rB.rowKey)! + yOffLocal - s)
+              .attr("stroke", tlFmt.lineColor.value.value)
+              .attr("stroke-width", tlFmt.lineWidth.value)
+              .style("pointer-events", "none");
+          }
+        }
+
+        sorted.forEach(row => {
+          const s = tlFmt.tickSize.value;
+          this.ganttG.append("rect")
+            .attr("class", "timeline-tick")
+            .attr("x", newX(row.timelineDate) - s)
+            .attr("y", y(row.rowKey)! + yOffLocal - s * 2)
+            .attr("width", s * 2)
+            .attr("height", s * 2)
+            .attr("fill", tlFmt.tickColor.value.value)
+            .attr("stroke", tlFmt.tickColor.value.value)
+            .style("pointer-events", "none");
+        });
+      });
+    }
 
   }
 
