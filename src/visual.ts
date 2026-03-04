@@ -142,33 +142,6 @@ function createSelectorDataPoints(options: VisualUpdateOptions, host: IVisualHos
   return dataPoints;
 }
 
-function getColumnColorByIndex(
-  category: DataViewCategoryColumn,
-  index: number,
-  colorPalette: ISandboxExtendedColorPalette,
-  objectName: string = "colorSelector"
-): string {
-  if (colorPalette.isHighContrast) {
-    return colorPalette.background.value;
-  }
-
-  const prop: DataViewObjectPropertyIdentifier = {
-    objectName: objectName,
-    propertyName: "fill"
-  };
-
-  let colorFromObjects: Fill;
-  if (category.objects?.[index]) {
-    colorFromObjects = dataViewObjects.getValue(category?.objects[index], prop);
-  }
-
-  if (colorFromObjects?.solid.color) {
-    return colorFromObjects.solid.color;
-  }
-
-  return colorPalette.getColor(`${category.values[index]}`).value;
-}
-
 type FormatType = 'Hora' | 'Día' | 'Mes' | 'Año' | 'Todo';
 
 export class Visual implements IVisual {
@@ -2517,13 +2490,11 @@ export class Visual implements IVisual {
       .each(function (d) {
         d3.select(this).selectAll("*").remove();
         const markerX = newX(d.secondaryEnd!);
-        const barHeight = d.isGroup ? 4 : 5;
         const yOff = (self.fmtSettings.taskCard.taskHeight.value - self.barH) / 2;
         const markerY = self.y(d.rowKey)! + yOff + (self.secondaryBarOffsets.get(d.id) ?? self.barH * 0.5);
 
         const baseColor = self.getBarColor(d.rowKey, d.legend);
         const color = d3.color(baseColor);
-        const fillColor = color ? color.toString() : "#1a252f";
 
         const categorical = self.lastOptions.dataViews[0].categorical;
         const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
