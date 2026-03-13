@@ -1,6 +1,15 @@
 import { BarDatum } from "../visual";
 
+const completionCache = new Map<string, number>();
+const COMPLETION_CACHE_MAX = 500;
+
 export function getCompletionByGroup(rowKey: string, allBars: BarDatum[]): number {
+    const cacheKey = rowKey;
+    
+    if (completionCache.has(cacheKey)) {
+        return completionCache.get(cacheKey)!;
+    }
+
     const groupId = rowKey.replace(/^G:/, "");
 
     const children = allBars.filter(b => {
@@ -13,11 +22,20 @@ export function getCompletionByGroup(rowKey: string, allBars: BarDatum[]): numbe
         .map(c => Number(c.completion))
         .filter(c => !isNaN(c));
 
-    if (!completions.length) {
-        return 0;
+    let result = 0;
+    if (completions.length) {
+        const avg = completions.reduce((a, b) => a + b, 0) / completions.length;
+        result = Math.max(0, Math.min(1, avg > 1 ? avg / 100 : avg));
     }
 
-    const avg = completions.reduce((a, b) => a + b, 0) / completions.length;
-    const boundedAvg = Math.max(0, Math.min(1, avg > 1 ? avg / 100 : avg));
-    return boundedAvg;
+    if (completionCache.size >= COMPLETION_CACHE_MAX) {
+        completionCache.clear();
+    }
+    completionCache.set(cacheKey, result);
+
+    return result;
+}
+
+export function clearCompletionCache(): void {
+    completionCache.clear();
 }

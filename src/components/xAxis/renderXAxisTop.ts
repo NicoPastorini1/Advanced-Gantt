@@ -69,10 +69,6 @@ export function renderXAxisTop(params: {
       labelFormat = esLocale.format("%B %Y");
   }
 
-
-  const labelData = intervals.slice(0, -1);
-  const midPoints = getMidTicks(intervals, domainEnd);
-
   svg
     .attr("transform", `translate(${translateX}, 0)`)
     .attr("class", "x-axis-top");
