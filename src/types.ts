@@ -21,7 +21,10 @@ export interface Task {
 export interface VisualRow {
   id: string;
   isGroup: boolean;
+  isTask?: boolean;
+  isLegendGroup?: boolean;
   task?: Task;
+  legendItems?: Task[];
   rowKey: string;
   labelY: string;
   duration?: number;

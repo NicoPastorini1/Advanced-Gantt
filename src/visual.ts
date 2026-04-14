@@ -41,6 +41,8 @@ export interface BarDatum {
   end: Date;
   rowKey: string;
   isGroup: boolean;
+  isTask?: boolean;
+  isSummary?: boolean;
   index: number;
   completion?: number;
   secondaryStart?: Date;
@@ -387,7 +389,7 @@ export class Visual implements IVisual {
                   ...this.lastOptions,
                   viewport: { width, height }
                 };
-                this.update(this.lastOptions, true);
+this.update(this.lastOptions);
               }
             });
           }
@@ -614,7 +616,8 @@ export class Visual implements IVisual {
     this.landingG.attr("display", "none");
 
     const expCache = new Map(this.expanded);
-    const { visibleRows, expanded } = this.buildRows(this.cacheTasks, expCache);
+    const showSubChildren = this.fmtSettings.taskCard.showSubChildren.value;
+    const { visibleRows, expanded } = this.buildRows(this.cacheTasks, expCache, showSubChildren);
     this.expanded = expanded;
 
     const rowH = this.fmtSettings.taskCard.taskHeight.value;
@@ -906,26 +909,46 @@ export class Visual implements IVisual {
         if (top === undefined) return;
         const g = d3.select(this);
         if (row.isGroup) {
+          const showSubChildren = self.fmtSettings.taskCard.showSubChildren.value;
+          const bgColor = (row.isTask && !row.isLegendGroup && !showSubChildren) ? "#ffffff" : parFmt.backgroundColor.value.value;
+          
           g.append("rect")
             .attr("x", 0)
             .attr("y", top)
             .attr("width", margin.left)
             .attr("height", yScale.bandwidth())
-            .attr("fill", parFmt.backgroundColor.value.value);
+            .attr("fill", bgColor);
 
           const exp = self.expanded.get(row.id) ?? true;
+          const canExpand = (row.isTask && !row.isLegendGroup && showSubChildren) || row.rowKey?.startsWith("P:");
+          
+          let indentX = 5;
+          if (row.isTask) indentX = 20;
+          if (row.isLegendGroup) indentX = 40;
 
-          let key: string | undefined;
-          if (row.rowKey?.startsWith("G:")) key = row.rowKey.slice(2);
-          else if (row.rowKey?.includes("|")) key = row.rowKey.split("|")[1];
+          let parentKey: string | undefined;
+          if (row.rowKey?.startsWith("P:")) {
+            parentKey = row.rowKey.slice(2);
+          } else if (row.rowKey?.startsWith("T:")) {
+            const parts = row.rowKey.split("|");
+            parentKey = parts.length > 1 ? parts[1] : parts[0];
+          } else if (row.rowKey?.startsWith("L:")) {
+            const parts = row.rowKey.replace("L:", "").split("|");
+            parentKey = parts.length > 2 ? parts[2] : (parts.length > 1 ? parts[1] : parts[0]);
+          } else if (row.rowKey?.startsWith("G:")) {
+            parentKey = row.rowKey.slice(2);
+          } else if (row.rowKey?.includes("|")) {
+            const parts = row.rowKey.split("|");
+            parentKey = parts.length > 1 ? parts[1] : parts[0];
+          }
 
-          const triColor = key ? self.parentColorMap.get(key) ?? parFmt.fontColor.value.value : parFmt.fontColor.value.value;
+          const triColor = parentKey ? self.parentColorMap.get(parentKey) ?? parFmt.fontColor.value.value : parFmt.fontColor.value.value;
 
           const label = g.append("text")
-            .attr("x", 5)
+            .attr("x", indentX)
             .attr("y", top + yScale.bandwidth() / 2 + 4)
-            .attr("font-weight", "bold")
-            .attr("cursor", "pointer")
+            .attr("font-weight", canExpand && row.rowKey?.startsWith("P:") ? "bold" : "normal")
+            .attr("cursor", canExpand ? "pointer" : "default")
             .attr("font-family", parFmt.fontFamily.value)
             .attr("font-size", parFmt.fontSize.value)
             .attr("data-rowKey", row.rowKey)
@@ -938,11 +961,13 @@ export class Visual implements IVisual {
 
           label.text(null);
 
-          label.append("tspan")
-            .attr("fill", triColor)
-            .text(exp ? "▼" : "▶")
-            .attr("dy", "3px")
-            .attr("data-rowKey", row.rowKey);
+          if (canExpand) {
+            label.append("tspan")
+              .attr("fill", triColor)
+              .text(exp ? "▼" : "▶")
+              .attr("dy", "3px")
+              .attr("data-rowKey", row.rowKey);
+          }
 
           label.append("tspan")
             .text(" " + row.labelY);
@@ -952,7 +977,7 @@ export class Visual implements IVisual {
             g.append("text").text(self.dateFormatter(r.start))
               .attr("x", colX(self.taskColCount))
               .attr("y", top + yScale.bandwidth() / 2 + 4)
-              .attr("font-weight", "bold")
+              
               .attr("fill", parFmt.fontColor.value.value)
               .attr("font-size", parFmt.fontSize.value)
               .attr("data-rowKey", row.rowKey)
@@ -961,7 +986,7 @@ export class Visual implements IVisual {
             g.append("text").text(self.dateFormatter(r.end))
               .attr("x", colX(self.taskColCount + 1))
               .attr("y", top + yScale.bandwidth() / 2 + 4)
-              .attr("font-weight", "bold")
+              
               .attr("fill", parFmt.fontColor.value.value)
               .attr("data-rowKey", row.rowKey)
               .attr("font-size", parFmt.fontSize.value)
@@ -972,7 +997,7 @@ export class Visual implements IVisual {
                 g.append("text").text(self.dateFormatter(r.secondaryStart))
                   .attr("x", colX(self.taskColCount + 2))
                   .attr("y", top + yScale.bandwidth() / 2 + 4)
-                  .attr("font-weight", "bold")
+                  
                   .attr("fill", parFmt.fontColor.value.value)
                   .attr("data-rowKey", row.rowKey)
                   .attr("font-size", parFmt.fontSize.value)
@@ -982,7 +1007,7 @@ export class Visual implements IVisual {
                 g.append("text").text(self.dateFormatter(r.secondaryEnd))
                   .attr("x", colX(self.taskColCount + 3))
                   .attr("y", top + yScale.bandwidth() / 2 + 4)
-                  .attr("font-weight", "bold")
+                  
                   .attr("fill", parFmt.fontColor.value.value)
                   .attr("data-rowKey", row.rowKey)
                   .attr("font-size", parFmt.fontSize.value)
@@ -995,7 +1020,7 @@ export class Visual implements IVisual {
             g.append("text").text(String(row.duration))
               .attr("x", colX(self.taskColCount + (self.fmtSettings.taskCard.showSecondaryColumns.value ? 4 : 2)))
               .attr("y", top + yScale.bandwidth() / 2 + 4)
-              .attr("font-weight", "bold")
+              
               .attr("fill", parFmt.fontColor.value.value)
               .attr("data-rowKey", row.rowKey)
               .attr("font-size", parFmt.fontSize.value)
@@ -1030,7 +1055,7 @@ export class Visual implements IVisual {
                 .text(aggVal)
                 .attr("x", colX(colIndex))
                 .attr("y", top + yScale.bandwidth() / 2 + 4)
-                .attr("font-weight", "bold")
+                
                 .attr("fill", parFmt.fontColor.value.value)
                 .attr("font-size", parFmt.fontSize.value)
                 .attr("data-rowKey", row.rowKey)
@@ -1045,30 +1070,57 @@ export class Visual implements IVisual {
           const durationIndex = hasDuration ? row.task.fields.length - 1 : -1;
           const showSecondaryColumns = self.fmtSettings.taskCard.showSecondaryColumns.value;
 
-          row.task.fields.forEach((val, i) => {
-            if (hasDuration && i === durationIndex) return;
-
-            const maxWidth = colWidths[i] - 8;
+          if (row.isLegendGroup) {
+            const legendVal = row.task.legend || "Default";
+            const maxWidth = colWidths[0] - 8;
             const tmp = g.append("text")
-              .attr("x", colX(i))
+              .attr("x", colX(0))
               .attr("y", top + yScale.bandwidth() / 2 + 4)
               .attr("font-size", taskFmt.fontSize.value)
               .attr("fill", taskFmt.fontColor.value.value)
               .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal")
+              .attr("font-weight", "normal")
               .attr("data-rowKey", row.rowKey)
-              .text(val);
+              .text(legendVal);
 
             let textNode = tmp.node() as SVGTextElement;
             if (textNode.getComputedTextLength() > maxWidth) {
-              let str = val;
+              let str = legendVal;
               while (str.length && textNode.getComputedTextLength() > maxWidth) {
                 str = str.slice(0, -1);
                 tmp.text(str + "…");
                 textNode = tmp.node() as SVGTextElement;
               }
             }
-            tmp.append("title").text(val);
-          });
+            tmp.append("title").text(legendVal);
+          } else {
+            row.task.fields.forEach((val, i) => {
+              if (hasDuration && i === durationIndex) return;
+
+              const maxWidth = colWidths[i] - 8;
+              const tmp = g.append("text")
+                .attr("x", colX(i))
+                .attr("y", top + yScale.bandwidth() / 2 + 4)
+                .attr("font-size", taskFmt.fontSize.value)
+                .attr("fill", taskFmt.fontColor.value.value)
+                .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal")
+                .attr("data-rowKey", row.rowKey)
+                .text(val);
+
+              let textNode = tmp.node() as SVGTextElement;
+              if (textNode.getComputedTextLength() > maxWidth) {
+                let str = val;
+                while (str.length && textNode.getComputedTextLength() > maxWidth) {
+                  str = str.slice(0, -1);
+                  tmp.text(str + "…");
+                  textNode = tmp.node() as SVGTextElement;
+                }
+              }
+              tmp.append("title").text(val);
+            });
+          }
 
           // === Inicio P ===
           g.append("text")
@@ -1078,7 +1130,8 @@ export class Visual implements IVisual {
             .attr("font-size", taskFmt.fontSize.value)
             .attr("fill", taskFmt.fontColor.value.value)
             .attr("data-rowKey", row.rowKey)
-            .attr("font-family", taskFmt.fontFamily.value);
+            .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal");
 
           // === Fin P ===
           g.append("text")
@@ -1088,7 +1141,8 @@ export class Visual implements IVisual {
             .attr("font-size", taskFmt.fontSize.value)
             .attr("fill", taskFmt.fontColor.value.value)
             .attr("data-rowKey", row.rowKey)
-            .attr("font-family", taskFmt.fontFamily.value);
+            .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal");
 
           // === Secondary ===
           if (showSecondaryColumns) {
@@ -1099,7 +1153,8 @@ export class Visual implements IVisual {
               .attr("font-size", taskFmt.fontSize.value)
               .attr("data-rowKey", row.rowKey)
               .attr("fill", taskFmt.fontColor.value.value)
-              .attr("font-family", taskFmt.fontFamily.value);
+              .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal");
 
             g.append("text")
               .text(row.task.secondaryEnd && !isNaN(row.task.secondaryEnd.getTime()) ? self.dateFormatter(row.task.secondaryEnd) : " ")
@@ -1108,7 +1163,8 @@ export class Visual implements IVisual {
               .attr("font-size", taskFmt.fontSize.value)
               .attr("data-rowKey", row.rowKey)
               .attr("fill", taskFmt.fontColor.value.value)
-              .attr("font-family", taskFmt.fontFamily.value);
+              .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal");
           }
 
           // === ExtraCols ===
@@ -1137,6 +1193,7 @@ export class Visual implements IVisual {
                 .attr("font-size", taskFmt.fontSize.value)
                 .attr("fill", taskFmt.fontColor.value.value)
                 .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal")
                 .attr("data-rowKey", row.rowKey)
                 .text(displayVal);
 
@@ -1151,7 +1208,9 @@ export class Visual implements IVisual {
               .attr("y", top + yScale.bandwidth() / 2 + 4)
               .attr("font-size", taskFmt.fontSize.value)
               .attr("fill", taskFmt.fontColor.value.value)
-              .attr("font-family", taskFmt.fontFamily.value);
+              .attr("font-family", taskFmt.fontFamily.value)
+              .attr("font-weight", "normal")
+              ;
           }
         }
       });
@@ -1189,43 +1248,75 @@ export class Visual implements IVisual {
 
     const taskBars: BarDatum[] = [];
     visibleRows
-      .filter(r => !r.isGroup && r.task)
+      .filter(r => r.isTask && r.task)
       .forEach(r => {
         const task = r.task!;
-        const entries = (task as any).legendEntries || [task];
+        
+        if (r.isLegendGroup) {
+          if (task.start && task.end) {
+            const legendCat = categorical.categories.find(c => c.source.roles?.legend);
+            const prop: DataViewObjectPropertyIdentifier = { objectName: "legendColorSelector", propertyName: "fill" };
+            const obj = legendCat?.objects?.[task.index];
+            const fxColor = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
 
-        entries.forEach((entry: Task) => {
-  if (entry.start && entry.end) {
-    const legendCat = categorical.categories.find(c => c.source.roles?.legend);
-    const prop: DataViewObjectPropertyIdentifier = { objectName: "legendColorSelector", propertyName: "fill" };
-    const obj = legendCat?.objects?.[entry.index];
-    const fxColor = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
+            taskBars.push({
+              id: `${task.id}_${task.legend || 'default'}_${r.rowKey}`,
+              start: task.start,
+              end: task.end,
+              rowKey: r.rowKey,
+              isGroup: false,
+              isTask: true,
+              index: task.index,
+              completion: task.completion,
+              secondaryStart: task.secondaryStart ? new Date(task.secondaryStart) : undefined,
+              secondaryEnd: task.secondaryEnd ? new Date(task.secondaryEnd) : undefined,
+              selectionId: this.host.createSelectionIdBuilder()
+                .withCategory(taskCategory, task.index)
+                .createSelectionId() as ISelectionId,
+              legend: task.legend,
+              resolvedColor: fxColor
+            });
+          }
+        } else {
+          const legendCat = categorical.categories.find(c => c.source.roles?.legend);
+          const prop: DataViewObjectPropertyIdentifier = { objectName: "legendColorSelector", propertyName: "fill" };
+          
+          const childTasks = this.cacheTasks.filter(t => 
+            t.id === task.id && t.parent === task.parent
+          );
+          
+          childTasks.forEach((childTask, childIdx) => {
+            if (childTask.start && childTask.end) {
+              const obj = legendCat?.objects?.[childTask.index];
+              const fxColor = obj ? dataViewObjects.getValue<Fill>(obj, prop)?.solid?.color : undefined;
 
-    taskBars.push({
-      id: `${entry.id}_${entry.legend || 'default'}`,
-      start: entry.start,
-      end: entry.end,
-      rowKey: r.rowKey,
-      isGroup: false,
-      index: entry.index,
-      completion: entry.completion,
-      secondaryStart: entry.secondaryStart ? new Date(entry.secondaryStart) : undefined,
-      secondaryEnd: entry.secondaryEnd ? new Date(entry.secondaryEnd) : undefined,
-      selectionId: this.host.createSelectionIdBuilder()
-        .withCategory(taskCategory, entry.index)
-        .createSelectionId() as ISelectionId,
-      legend: entry.legend,
-      resolvedColor: fxColor
-    });
-  }
-});
+              taskBars.push({
+                id: `child_${task.id}_${childIdx}_${r.rowKey}`,
+                start: childTask.start,
+                end: childTask.end,
+                rowKey: r.rowKey,
+                isGroup: false,
+                isTask: true,
+                index: childTask.index,
+                completion: childTask.completion,
+                secondaryStart: childTask.secondaryStart ? new Date(childTask.secondaryStart) : undefined,
+                secondaryEnd: childTask.secondaryEnd ? new Date(childTask.secondaryEnd) : undefined,
+                selectionId: this.host.createSelectionIdBuilder()
+                  .withCategory(taskCategory, childTask.index)
+                  .createSelectionId() as ISelectionId,
+                legend: childTask.legend,
+                resolvedColor: fxColor
+              });
+            }
+          });
+        }
       });
 
     const parentCategory = categorical.categories[1];
     const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
 
     const groupBars: BarDatum[] = visibleRows
-      .filter(r => r.isGroup)
+      .filter(r => r.isGroup && r.rowKey?.startsWith("P:"))
       .map(r => {
         const range = this.groupRange.get(r.id)!;
         const parentIndex = parentCategory.values.findIndex(v => `${v}` === r.id);
@@ -1273,7 +1364,7 @@ export class Visual implements IVisual {
       if (!(d.start instanceof Date) || !(d.end instanceof Date)) return;
 
       let key: string | undefined;
-      if (d.rowKey?.startsWith("G:")) {
+      if (d.rowKey?.startsWith("G:") || d.rowKey?.startsWith("P:")) {
         key = d.rowKey.slice(2);
       } else if (d.rowKey?.includes("|")) {
         key = d.rowKey.split("|")[1];
@@ -1337,19 +1428,22 @@ export class Visual implements IVisual {
       .attr("fill", "#666");
 
     if (allBars.length) {
-      const bars = this.ganttG.selectAll<SVGRectElement, BarDatum>(".bar, .bar-secondary")
+      const bars = this.ganttG.selectAll<SVGElement, BarDatum>(".bar, .bar-secondary")
         .data(allBars, d => d.id)
         .join(
-          enter => enter.append(d =>
-            document.createElementNS("http://www.w3.org/2000/svg", d.isGroup ? "path" : "rect")
-          ).attr("class", "bar"),
+          enter => enter.append(d => {
+            if (d.isGroup && d.rowKey?.startsWith("P:")) {
+              return document.createElementNS("http://www.w3.org/2000/svg", "path");
+            }
+            return document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          }).attr("class", "bar"),
           update => update,
           exit => exit.remove()
         );
 
-      // === HIJOS (tareas) ===
+      // === BARRAS DE TAREAS (Task/Diseno y Legend) ===
       bars.filter(d =>
-        !d.isGroup &&
+        d.isTask &&
         d.start instanceof Date && !isNaN(d.start.getTime()) &&
         d.end instanceof Date && !isNaN(d.end.getTime())
       )
@@ -1402,8 +1496,8 @@ export class Visual implements IVisual {
           event.preventDefault();
         });
 
-      // === PADRES (grupos) ===
-      bars.filter(d => d.isGroup)
+      // === PADRES (corchete) ===
+      bars.filter(d => d.isGroup && d.rowKey?.startsWith("P:"))
         .attr("d", d => getGroupBarPath(x, yScale, d, taskFmt.taskHeight.value, this.barH))
         .attr("fill", d => `url(#${d.gradientId})`)
         .attr("stroke", d => {
@@ -1573,6 +1667,9 @@ export class Visual implements IVisual {
         const markerY = yScale(d.rowKey)! + yOff + self.barH * 0.5;
 
         let strokeColor = self.fmtSettings.secondaryBarCard.strokeColor.value.value;
+        if (d.isGroup) {
+          strokeColor = getBarColor(d.rowKey, d.legend, self.legendColorMap, self.parentColorMap);
+        }
         let fillColor = strokeColor;
         let shapeValue = self.fmtSettings.secondaryBarCard.endMarkerShape.value;
         let shapeSize = self.fmtSettings.secondaryBarCard.endMarkerSize.value;
@@ -1959,8 +2056,8 @@ export class Visual implements IVisual {
     return result.tasks;
   }
 
-  private buildRows(tasks: Task[], cache: Map<string, boolean>) {
-    const result = buildRows(tasks, cache);
+  private buildRows(tasks: Task[], cache: Map<string, boolean>, showSubChildren = true) {
+    const result = buildRows(tasks, cache, showSubChildren);
     this.groupRange = result.groupRange;
     return { visibleRows: result.visibleRows, expanded: result.expanded };
   }
@@ -2112,7 +2209,10 @@ export class Visual implements IVisual {
         const legendCategory = categorical.categories.find(c => c.source.roles?.legend);
 
         let strokeColor = self.fmtSettings.secondaryBarCard.strokeColor.value.value;
-        if (legendCategory && d.legend) {
+        if (d.isGroup) {
+          strokeColor = baseColor;
+        }
+        else if (legendCategory && d.legend) {
           const legendIndex = legendCategory.values.findIndex((v, i) => String(v) === d.legend && i === d.index);
           const obj = legendIndex >= 0 ? legendCategory.objects?.[legendIndex] : null;
           if (obj) {

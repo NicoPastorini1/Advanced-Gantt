@@ -42,7 +42,7 @@ export function getBarColor(
     }
   }
 
-  if (rowKey.startsWith("G:")) {
+  if (rowKey.startsWith("G:") || rowKey.startsWith("P:")) {
     const parentKey = rowKey.slice(2);
     return parentColorMap.get(parentKey) ?? "#72c0ffff";
   }

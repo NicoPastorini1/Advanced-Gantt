@@ -1,0 +1,19 @@
+{
+    "locale": "en-US",
+    "strings": {
+        "Role_StartDate": "Start Date",
+        "Role_EndDate": "End Date",
+        "Role_Parent": "Parent",
+        "Role_Task": "Task",
+        "Role_SecondaryStart": "Secondary Start Date",
+        "Role_SecondaryEnd": "Secondary End Date",
+        "Role_Completion": "Completion",
+        "Role_Duration": "Duration",
+        "Role_Legend": "Legend",
+        "Role_Predecessor": "Predecessor",
+        "Role_TimelineDate": "Timeline Date",
+        "Label_Today": "Today",
+        "Landing_Instruction": "⏳ Start Date → Start",
+        "Landing_Instruction2": "🏁 End Date → End"
+    }
+}

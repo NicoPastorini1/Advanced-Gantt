@@ -429,6 +429,13 @@ class TaskCardSetting extends SimpleCard {
         value: true
     });
 
+    showSubChildren = new ToggleSwitch({
+        name: "showSubChildren",
+        displayName: "Mostrar sub-hijos",
+        description: "Muestra el nivel de sub-tareas (leyenda)",
+        value: true
+    });
+
     showSecondaryColumns = new ToggleSwitch({
         name: "showSecondary",
         displayName: "Mostrar campos de Secondary",
@@ -497,7 +504,7 @@ class TaskCardSetting extends SimpleCard {
 
     name = "taskStyle";
     displayName = "Tareas";
-    slices: FormattingSettingsSlice[] = [this.show, this.showSecondaryColumns, this.taskHeight, this.fontColor, this.fontSize, this.fontFamily, this.taskWidth, this.startWidth, this.endWidth, this.secStartWidth, this.secEndWidth];
+    slices: FormattingSettingsSlice[] = [this.show, this.showSubChildren, this.showSecondaryColumns, this.taskHeight, this.fontColor, this.fontSize, this.fontFamily, this.taskWidth, this.startWidth, this.endWidth, this.secStartWidth, this.secEndWidth];
 }
 class SecondaryBarCardSettings extends SimpleCard {
     name: string = "secondaryBarCard";

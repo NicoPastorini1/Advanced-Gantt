@@ -21,32 +21,34 @@
       "predecessor":{"max":1},"completion":{"max":1},
       "columns":{"max":5},"timelineDate":{"max":1}
     }],
-    "categorical":{
-      "categories":{
-        "dataReductionAlgorithm": {
-          "top": {
-            "count": 1000
-          }
-        },
-        "select":[
-          {"bind":{"to":"task"}},
-          {"bind":{"to":"parent"}},
-          {"bind":{"to":"legend"}},
-          {"bind":{"to":"predecessor"}},
-          {"for":{"in":"columns"}}
-        ]
-      },
-      "values":{"select":[
-        {"bind":{"to":"startDate"}},
-        {"bind":{"to":"endDate"}},
-        {"bind":{"to":"columns"}},
-        {"bind":{"to":"secondaryStart"}},
-        {"bind":{"to":"secondaryEnd"}},
-        {"bind":{"to":"completion"}}
-        ,{"bind":{"to":"timelineDate"}}
-      ]}
+        "categorical":{
+          "categories":{
+            "dataReductionAlgorithm": {
+              "top": {
+                "count": 10000
+              }
+            },
+            "select":[
+              {"bind":{"to":"task"}},
+              {"bind":{"to":"parent"}},
+              {"bind":{"to":"legend"}},
+              {"bind":{"to":"predecessor"}},
+              {"for":{"in":"columns"}}
+            ]
+          },
+          "values":{"select":[
+            {"bind":{"to":"startDate"}},
+            {"bind":{"to":"endDate"}},
+            {"bind":{"to":"columns"}},
+            {"bind":{"to":"secondaryStart"}},
+            {"bind":{"to":"secondaryEnd"}},
+            {"bind":{"to":"completion"}}
+            ,{"bind":{"to":"timelineDate"}}
+          ]}
+        }
     }
-  }],
+  ]
+  ,
   "objects":{
     "general":{"displayName":"General","properties":{
       "formatString":{"type":{"formatting":{"formatString":true}}}
@@ -172,8 +174,9 @@
     "fontFamily": { "displayName": "Fuente", "type": { "formatting": { "fontFamily": true } } }
   }
 },
-    "taskStyle":{"displayName":"Tareas","properties":{
+"taskStyle":{"displayName":"Tareas","properties":{
       "show":{"displayName":"Mostrar tareas","type":{"bool":true}},
+      "showSubChildren":{"displayName":"Mostrar sub-hijos","type":{"bool":true}},
       "showSecondary":{"displayName":"Mostrar campos de Secondary","type":{"bool":true}},
       "fontColor":{"displayName":"Color de fuente","type":{"fill":{"solid":{"color":true}}}},
       "fontSize":{"displayName":"Tamaño de fuente","type":{"formatting":{"fontSize":true}}},
@@ -230,7 +233,7 @@
   "supportsLandingPage":true,
   "supportsKeyboardFocus":true,
   "supportsMultiVisualSelection":true,
-  "sorting":{"default":{}},
+  "sorting": {"default": {}},
   "drilldown":{"roles":["task","parent"]},
   "privileges": [ { "name": "WebAccess", "essential": true } ]
 }

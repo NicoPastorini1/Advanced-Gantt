@@ -6,7 +6,7 @@
         "visualClassName": "Visual",
         "version": "1.0.0.0",
         "description": "diagram gantt",
-        "supportUrl": "https://example.com/support",
+        "supportUrl": "https://github.com/nicolaspastorini1/ganttvisual/issues",
         "gitHubUrl": "https://github.com/nicolaspastorini1/ganttvisual"
     },
     "apiVersion": "5.4.0",
@@ -21,5 +21,8 @@
     "style": "style/visual.less",
     "capabilities": "capabilities.json",
     "dependencies": null,
-    "stringResources": []
+    "stringResources": [
+        "stringResources/en-US/resources.resjson",
+        "stringResources/es/resources.resjson"
+    ]
 }

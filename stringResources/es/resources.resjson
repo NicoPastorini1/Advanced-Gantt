@@ -1,0 +1,19 @@
+{
+    "locale": "es",
+    "strings": {
+        "Role_StartDate": "Fecha de Inicio",
+        "Role_EndDate": "Fecha de Fin",
+        "Role_Parent": "Padre",
+        "Role_Task": "Tarea",
+        "Role_SecondaryStart": "Fecha Inicio Secundaria",
+        "Role_SecondaryEnd": "Fecha Fin Secundaria",
+        "Role_Completion": "Completado",
+        "Role_Duration": "Duración",
+        "Role_Legend": "Leyenda",
+        "Role_Predecessor": "Predecesor",
+        "Role_TimelineDate": "Fecha de Timeline",
+        "Label_Today": "Hoy",
+        "Landing_Instruction": "⏳ Fecha de Inicio → Inicio",
+        "Landing_Instruction2": "🏁 Fecha de Fin → Fin"
+    }
+}
