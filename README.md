@@ -66,7 +66,7 @@ src/
 
 1. Clonar el repositorio:  
    ```bash
-   git clone [https://github.com/<usuario>/<repo>.git](https://github.com/NicoPastorini1/Advanced-Gantt)
+   git clone https://github.com/NicoPastorini1/Advanced-Gantt/
    cd Advanced-Gantt
    ```
 
