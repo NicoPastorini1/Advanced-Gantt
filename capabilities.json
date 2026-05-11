@@ -12,20 +12,22 @@
     {"displayName":"Completion","name":"completion","kind":"Measure"},
     {"displayName":"Tooltips","name":"tooltips","kind":"Measure"},
     {"displayName": "Legend", "name": "legend", "kind": "GroupingOrMeasure"}
-    ,{"displayName":"Timeline Date","name":"timelineDate","kind":"Measure"}
+    ,{"displayName":"Timeline Date","name":"timelineDate","kind":"Measure"},
+    {"displayName":"Etiqueta","name":"label","kind":"Measure"}
   ],
   "dataViewMappings":[{
     "conditions":[{
       "parent":{"max":1},"startDate":{"max":1},"endDate":{"max":1},
       "secondaryEnd":{"max":1},"secondaryStart":{"max":1},
       "predecessor":{"max":1},"completion":{"max":1},
-      "columns":{"max":5},"timelineDate":{"max":1}
+      "columns":{"max":5},"timelineDate":{"max":1},
+      "label":{"max":1}
     }],
         "categorical":{
           "categories":{
             "dataReductionAlgorithm": {
               "top": {
-                "count": 10000
+                "count": 50000
               }
             },
             "select":[
@@ -44,6 +46,7 @@
             {"bind":{"to":"secondaryEnd"}},
             {"bind":{"to":"completion"}}
             ,{"bind":{"to":"timelineDate"}}
+            ,{"bind":{"to":"label"}}
           ]}
         }
     }
@@ -63,12 +66,16 @@
       "fontSize":{"displayName":"Tamaño de fuente","type":{"formatting":{"fontSize":true}}},
       "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}}
     }},
-    "labelCard":{"displayName":"Encabezados","properties":{
-      "show":{"displayName":"Mostrar encabezados","type":{"bool":true}},
+    "labelCard":{"displayName":"Etiquetas","properties":{
+      "show":{"displayName":"Mostrar etiquetas","type":{"bool":true}},
+      "labelContent":{"displayName":"Contenido","type":{"text":true}},
+      "labelPosition":{"displayName":"Posición","type":{"enumeration":[{"value":"end","displayName":"Al final"},{"value":"center","displayName":"Centrado"},{"value":"start","displayName":"Al inicio"}]}},
       "fontColor":{"displayName":"Color de fuente","type":{"fill":{"solid":{"color":true}}}},
-      "backgroundColor":{"displayName":"Color de fondo","type":{"fill":{"solid":{"color":true}}}},
       "fontSize":{"displayName":"Tamaño de fuente","type":{"formatting":{"fontSize":true}}},
-      "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}}
+      "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}},
+      "bold":{"type":{"bool":true}},
+      "italic":{"type":{"bool":true}},
+      "underline":{"type":{"bool":true}}
     }}
     ,
     "secondaryBarCard": {

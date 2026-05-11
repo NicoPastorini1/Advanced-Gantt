@@ -5,7 +5,7 @@ import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import FormattingSettingsSlice = formattingSettings.SimpleSlice;
 import FormattingSettingsGroup = formattingSettings.Group;
 import Card = formattingSettings.SimpleCard;
-import { Model, Slice, ColorPicker, SimpleCard, NumUpDown, ToggleSwitch, FontControl, CompositeCard, FontPicker } from "powerbi-visuals-utils-formattingmodel/lib/FormattingSettingsComponents";
+import { Model, Slice, ColorPicker, SimpleCard, NumUpDown, ToggleSwitch, FontControl, CompositeCard, FontPicker, TextInput, ItemDropdown } from "powerbi-visuals-utils-formattingmodel/lib/FormattingSettingsComponents";
 import { GanttDataPoint } from "./types";
 import powerbiVisualsApi from "powerbi-visuals-api";
 import VisualEnumerationInstanceKinds = powerbiVisualsApi.VisualEnumerationInstanceKinds;
@@ -334,16 +334,29 @@ class labelCardSettings extends SimpleCard {
         value: true
     });
 
+    labelContent = new TextInput({
+        name: "labelContent",
+        displayName: "Contenido",
+        value: "{task} ({duration})",
+        placeholder: "Ej: {task} ({duration})",
+        instanceKind: VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    labelPosition = new ItemDropdown({
+        name: "labelPosition",
+        displayName: "Posición",
+        items: [
+            { displayName: "Al final", value: "end" },
+            { displayName: "Centrado", value: "center" },
+            { displayName: "Al inicio", value: "start" }
+        ],
+        value: { displayName: "Al final", value: "end" }
+    });
+
     fontColor = new ColorPicker({
         name: "fontColor",
         displayName: "Color de fuente",
         value: { value: "#000000" }
-    });
-
-    backgroundColor = new ColorPicker({
-        name: "backgroundColor",
-        displayName: "Color de fondo",
-        value: { value: "#ffffffff" }
     });
 
     fontSize = new NumUpDown({
@@ -358,9 +371,37 @@ class labelCardSettings extends SimpleCard {
         value: "Segoe UI"
     });
 
+    bold = new ToggleSwitch({
+        name: "bold",
+        displayName: "Negrita",
+        value: false
+    });
+
+    italic = new ToggleSwitch({
+        name: "italic",
+        displayName: "Cursiva",
+        value: false
+    });
+
+    underline = new ToggleSwitch({
+        name: "underline",
+        displayName: "Subrayado",
+        value: false
+    });
+
+    font = new FontControl({
+        name: "font",
+        displayName: "Fuente",
+        fontFamily: this.fontFamily,
+        fontSize: this.fontSize,
+        bold: this.bold,
+        italic: this.italic,
+        underline: this.underline
+    });
+
     name = "labelCard";
     displayName = "Etiquetas";
-    slices: FormattingSettingsSlice[] = [this.show, this.fontColor, this.backgroundColor, this.fontSize, this.fontFamily];
+    slices: formattingSettings.Slice[] = [this.show, this.labelContent, this.labelPosition, this.font, this.fontColor];
 }
 
 /* Grupos compuestos */

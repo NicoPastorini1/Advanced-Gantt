@@ -20,6 +20,7 @@ export function renderXAxisBottom(params: {
     xScale,
     svg,
     height,
+    width,
     selectedFormat,
     translateX = 0,
     fmtSettings
@@ -34,16 +35,51 @@ export function renderXAxisBottom(params: {
   let intervals: Date[] = [];
 
   switch (selectedFormat) {
-    case "Hora":
+    case "Hora": {
+      // Dinámico: mostrar más detalle según nivel de zoom
       const visibleHours = (domainEnd.getTime() - domainStart.getTime()) / (1000 * 60 * 60);
-      const everyN = visibleHours > 48 ? 4 : visibleHours > 24 ? 2 : 1;
-      formatFunc = esLocale.format("%H");
-      intervals = xScale.ticks(d3.timeHour.every(everyN));
+      const pxPerHour = width / visibleHours;
+      
+      console.log(`[Zoom Debug] visibleHours: ${visibleHours.toFixed(2)}, pxPerHour: ${pxPerHour.toFixed(2)}, width: ${width}`);
+      
+      if (pxPerHour > 60) {
+        // Mucho zoom: mostrar ticks cada 10 minutos
+        formatFunc = esLocale.format("%H:%M");
+        intervals = d3.timeMinute.every(10).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_1_10MIN: cada 10 min (${intervals.length} ticks)`);
+      } else if (pxPerHour > 30) {
+        // Zoom alto: mostrar ticks cada 30 minutos  
+        formatFunc = esLocale.format("%H:%M");
+        intervals = d3.timeMinute.every(30).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_2_30MIN: cada 30 min (${intervals.length} ticks)`);
+      } else if (pxPerHour > 12) {
+        // Zoom medio-alto: mostrar ticks cada 1 hora (ORIGINAL)
+        formatFunc = esLocale.format("%H");
+        intervals = d3.timeHour.every(1).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_3_1HORA: cada 1 hora (${intervals.length} ticks)`);
+      } else if (pxPerHour > 6) {
+        // Zoom medio: mostrar ticks cada 2 horas (ORIGINAL)
+        formatFunc = esLocale.format("%H");
+        intervals = d3.timeHour.every(2).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_4_2HORAS: cada 2 horas (${intervals.length} ticks)`);
+      } else if (pxPerHour > 3) {
+        // Zoom normal: mostrar ticks cada 6 horas (ORIGINAL)
+        formatFunc = esLocale.format("%H");
+        intervals = d3.timeHour.every(6).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_5_6HORAS: cada 6 horas (${intervals.length} ticks)`);
+      } else if (pxPerHour > 1.5) {
+        // Poco zoom: mostrar ticks cada 12 horas (ORIGINAL)
+        formatFunc = esLocale.format("%H");
+        intervals = d3.timeHour.every(12).range(domainStart, domainEnd);
+        console.log(`[Zoom Debug] ***V1.0.0.20*** NIVEL_6_12HORAS: cada 12 horas (${intervals.length} ticks)`);
+      } else {
+        // Extremo poco zoom: mostrar ticks cada día (evitar encimamiento)
+        formatFunc = esLocale.format("%d/%m %H");
+        intervals = xScale.ticks(d3.timeDay.every(1));
+        console.log(`[Zoom Debug] Interval: cada día (${intervals.length} ticks)`);
+      }
       break;
-    case "Día":
-      formatFunc = esLocale.format("%d");
-      intervals = xScale.ticks(d3.timeDay.every(1));
-      break;
+    }
     case "Mes":
       formatFunc = esLocale.format("%b %y");
       intervals = xScale.ticks(d3.timeMonth.every(1));

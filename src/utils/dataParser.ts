@@ -84,6 +84,7 @@ export function parseData(dv: DataView): ParseDataResult {
   const secStartVal = cat.values.find(v => v.source.roles?.secondaryStart);
   const secEndVal = cat.values.find(v => v.source.roles?.secondaryEnd);
   const legendCol = cat.categories.find(c => c.source.roles?.legend);
+  const labelVal = cat.values.find(v => v.source.roles?.label);
 
   const secondaryStartName = secStartVal?.source.displayName ?? "Secondary Start Date";
   const secondaryEndName = secEndVal?.source.displayName ?? "Secondary End Date";
@@ -186,7 +187,8 @@ export function parseData(dv: DataView): ParseDataResult {
       index: i,
       extraCols: paddedExtraCols,
       legend: legendText,
-      timelineDate: timelineDate && !isNaN(timelineDate.getTime()) ? timelineDate : undefined
+      timelineDate: timelineDate && !isNaN(timelineDate.getTime()) ? timelineDate : undefined,
+      labelValue: labelVal ? String(labelVal.values[i] ?? "") : undefined
     };
 
     out.push(task);

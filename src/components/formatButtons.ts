@@ -24,6 +24,7 @@ export function renderFormatButtons({ container, onFormatChange }: FormatButtons
 
   // cuando clickeás, dispara el cambio de rango
   btns.on("click", (event, fmt) => {
+    console.log(`[FormatButton] Clicked: ${fmt}`);
     onFormatChange(fmt);
 
     // visualmente marcamos el activo

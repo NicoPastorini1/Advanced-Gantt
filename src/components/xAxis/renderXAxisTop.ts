@@ -18,6 +18,7 @@ export function renderXAxisTop(params: {
   width: number;
   selectedFormat: string;
   translateX?: number;
+  scrollLeft?: number;
   fmtSettings: VisualFormattingSettingsModel;
 }): void {
   const {
@@ -27,6 +28,7 @@ export function renderXAxisTop(params: {
     width,
     selectedFormat,
     translateX = 0,
+    scrollLeft = 0,
     fmtSettings
   } = params;
 
@@ -75,14 +77,16 @@ export function renderXAxisTop(params: {
 
   svg.selectAll("*").remove();
 
-      if (selectedFormat !== "Año") {
-    const labelData = intervals.slice(0, -1);
+  if (selectedFormat !== "Año") {
     svg.selectAll("text.x-label-top")
-      .data(labelData)
+      .data(intervals.slice(0, -1))
       .enter()
       .append("text")
       .attr("class", "x-label-top")
-      .attr("x", (d, i) => (xScale(d) + xScale(intervals[i + 1] ?? domainEnd)) / 2)
+      .attr("x", (d, i) => {
+        const xPos = (xScale(d) + xScale(intervals[i + 1] ?? domainEnd)) / 2;
+        return xPos;
+      })
       .attr("y", height - 5)
       .attr("text-anchor", "middle")
       .attr("alignment-baseline", "baseline")

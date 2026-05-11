@@ -46,26 +46,12 @@ export function buildRows(
           id: taskRowId,
           isGroup: true,
           isTask: true,
-          isLegendGroup: false,
           rowKey: taskRowId,
           labelY: taskId,
-          task: taskItems[0]
+          task: taskItems[0],
+          legendItems: taskItems
         });
 
-        if (taskExp) {
-          taskItems.forEach((t, idx) => {
-            const legendRowId = `L:${t.legend || "Default"}|${taskRowId}|${idx}`;
-            rows.push({
-              id: legendRowId,
-              isGroup: false,
-              isTask: true,
-              isLegendGroup: true,
-              rowKey: legendRowId,
-              labelY: t.legend || t.id,
-              task: t
-            });
-          });
-        }
         cache.set(taskRowId, taskExp);
       }
     }

@@ -16,6 +16,7 @@ export interface Task {
   legend?: string;
   timelineDate?: Date;
   legendEntries?: Task[];
+  labelValue?: string;
 }
 
 export interface VisualRow {

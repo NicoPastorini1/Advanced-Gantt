@@ -4,7 +4,7 @@
         "displayName": "ganttvisual",
         "guid": "ganttvisual89768643501A4BA7B57BD0602661FE77",
         "visualClassName": "Visual",
-        "version": "1.0.0.0",
+        "version": "1.0.0.21",
         "description": "diagram gantt",
         "supportUrl": "https://github.com/nicolaspastorini1/ganttvisual/issues",
         "gitHubUrl": "https://github.com/nicolaspastorini1/ganttvisual"

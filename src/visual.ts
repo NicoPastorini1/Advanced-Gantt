@@ -3,7 +3,7 @@
 import "./../style/visual.less";
 import * as d3 from "d3";
 import powerbi from "powerbi-visuals-api";
-import { renderDurationLabels } from "./utils/renderLabels";
+import { renderDurationLabels, updateLabelPositions } from "./utils/renderLabels";
 import { renderFormatButtons } from "./components/formatButtons";
 import { renderParentToggleButtons } from "./components/parentButtons";
 import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel/lib/FormattingSettingsService";
@@ -37,6 +37,7 @@ import FormattingId = powerbi.visuals.FormattingId;
 
 export interface BarDatum {
   id: string;
+  taskName?: string;
   start: Date;
   end: Date;
   rowKey: string;
@@ -51,6 +52,8 @@ export interface BarDatum {
   legend?: string;
   gradientId?: string;
   resolvedColor?: string;
+  labelText?: string;
+  labelValue?: string;
 }
 
 type FormatType = 'Hora' | 'Día' | 'Mes' | 'Año' | 'Todo';
@@ -110,6 +113,7 @@ export class Visual implements IVisual {
   private startName: string = "Start Date";
   private endName: string = "End Date";
   private parentName: string = "Parent";
+  private cachedAllBars: any[] = [];
   private legendColorStore = new Map<string, string>();
   private dateFormatter = d3.timeFormat("%d/%m/%Y %H:%M");
   private computedColWidths: number[] | null = null;
@@ -243,6 +247,7 @@ export class Visual implements IVisual {
     renderFormatButtons({
       container: this.rightBtns.node() as HTMLElement,
       onFormatChange: (fmt: string) => {
+        // CAMBIAR EL FORMATO Y EL ZOOM (comportamiento original)
         const [newMin, newMax] = this.getDateRangeFromFormat(fmt as FormatType);
         this.zoomToRange(newMin, newMax);
 
@@ -293,7 +298,7 @@ export class Visual implements IVisual {
       .style("display", "block");
 
     this.zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.35, 100])
+      .scaleExtent([0.35, 200])
       .translateExtent([[-1e9, -1e9], [1e9, 1e9]])
       .filter((event) => {
         return !event.ctrlKey || event.type === "wheel" || event.type === "mousedown";
@@ -319,6 +324,7 @@ export class Visual implements IVisual {
           width: this.currentWidth,
           selectedFormat: this.selectedFormat,
           translateX: this.marginLeft,
+          scrollLeft: this.ganttDiv.node()?.scrollLeft ?? 0,
           fmtSettings: this.fmtSettings
         });
 
@@ -371,6 +377,21 @@ export class Visual implements IVisual {
         this.xAxisFixedG.attr("transform", `translate(${-left},0)`);
         this.leftG.select<SVGGElement>(".y-content")
           .attr("transform", `translate(0, ${60 - top})`);
+        
+        // Re-render top axis with scrollLeft to adjust label positions
+        if (this.axisTopContentG && this.currentZoomTransform) {
+          const newX = this.currentZoomTransform.rescaleX(this.xOriginal);
+          renderXAxisTop({
+            xScale: newX,
+            svg: this.axisTopContentG,
+            height: 30,
+            width: this.currentWidth,
+            selectedFormat: this.selectedFormat,
+            translateX: this.marginLeft,
+            scrollLeft: left,
+            fmtSettings: this.fmtSettings
+          });
+        }
       });
     }, { passive: true });
 
@@ -1246,6 +1267,8 @@ this.update(this.lastOptions);
     const categorical = opts.dataViews[0].categorical;
     const taskCategory = categorical.categories[0];
 
+    const labelValuesFromView = categorical.values.find(v => v.source.roles?.label)?.values ?? [];
+
     const taskBars: BarDatum[] = [];
     visibleRows
       .filter(r => r.isTask && r.task)
@@ -1261,6 +1284,8 @@ this.update(this.lastOptions);
 
             taskBars.push({
               id: `${task.id}_${task.legend || 'default'}_${r.rowKey}`,
+              taskName: task.id,
+              labelValue: String(labelValuesFromView[task.index] ?? ""),
               start: task.start,
               end: task.end,
               rowKey: r.rowKey,
@@ -1292,6 +1317,8 @@ this.update(this.lastOptions);
 
               taskBars.push({
                 id: `child_${task.id}_${childIdx}_${r.rowKey}`,
+                taskName: childTask.id,
+                labelValue: childTask.labelValue,
                 start: childTask.start,
                 end: childTask.end,
                 rowKey: r.rowKey,
@@ -1327,6 +1354,7 @@ this.update(this.lastOptions);
 
         return {
           id: r.id,
+          taskName: r.id,
           start: range.start,
           end: range.end,
           rowKey: r.rowKey,
@@ -1353,10 +1381,41 @@ this.update(this.lastOptions);
         };
       });
 
-    const allBars = [...taskBars, ...groupBars].map((bar, i) => ({
-      ...bar,
-      gradientId: `bar-gradient-${i}`
-    }));
+    function extractLabelValue(raw: any): string | undefined {
+      if (raw == null) return undefined;
+      if (typeof raw === "string") return raw.trim() !== "" ? raw : undefined;
+      if (typeof raw === "number") return String(raw);
+      if (typeof raw === "boolean") return String(raw);
+      if (typeof raw === "object") {
+        if (raw.text != null && raw.text !== "") return String(raw.text);
+        if (raw.value != null) {
+          if (typeof raw.value === "string") return raw.value.trim() !== "" ? raw.value : undefined;
+          if (typeof raw.value === "number") return String(raw.value);
+          if (typeof raw.value === "object") return extractLabelValue(raw.value);
+        }
+        return undefined;
+      }
+      return undefined;
+    }
+
+    const allBars = this.cachedAllBars = [...taskBars, ...groupBars].map((bar, i) => {
+      let customLabel: string | undefined;
+      if (!bar.isGroup && taskCategory?.objects?.[bar.index]) {
+        const obj = taskCategory.objects[bar.index];
+        const raw: any = obj?.labelCard?.labelContent;
+        const val = extractLabelValue(raw);
+        if (val !== undefined && val.trim() !== "") {
+          customLabel = val;
+        }
+      }
+      const labelText = customLabel ?? (bar.labelValue || undefined);
+      return {
+        ...bar,
+        gradientId: `bar-gradient-${i}`,
+        labelText,
+        taskName: bar.taskName || bar.id
+      };
+    });
 
     const defs = this.ganttSVG.append("defs");
 
@@ -1844,7 +1903,8 @@ this.update(this.lastOptions);
         .attr("stroke-width", 1);
 
       // === LABELS DE DURACIÓN ===
-      if (this.fmtSettings.labelCard.show.value) {
+      const shouldShowLabels = this.shouldShowDurationLabels(x);
+      if (this.fmtSettings.labelCard.show.value && shouldShowLabels) {
         renderDurationLabels({
           svg: this.ganttG,
           bars: allBars,
@@ -1852,13 +1912,17 @@ this.update(this.lastOptions);
           y: this.y,
           yOffset: yOff,
           barHeight: this.barH,
-          fontFamily: this.fmtSettings.barCard.labelGroup.fontFamily.value,
-          fontSize: this.fmtSettings.barCard.labelGroup.fontSize.value,
-          fontColor: this.fmtSettings.barCard.labelGroup.fontColor.value.value,
-          bold: this.fmtSettings.barCard.labelGroup.bold.value,
-          italic: this.fmtSettings.barCard.labelGroup.italic.value,
-          underline: this.fmtSettings.barCard.labelGroup.underline.value
+          formatString: this.fmtSettings.labelCard.labelContent.value,
+          labelPosition: this.fmtSettings.labelCard.labelPosition.value.value as "end" | "center" | "start",
+          fontFamily: this.fmtSettings.labelCard.fontFamily.value,
+          fontSize: this.fmtSettings.labelCard.fontSize.value,
+          fontColor: this.fmtSettings.labelCard.fontColor.value.value,
+          bold: this.fmtSettings.labelCard.bold.value,
+          italic: this.fmtSettings.labelCard.italic.value,
+          underline: this.fmtSettings.labelCard.underline.value
         });
+      } else {
+        this.ganttG.selectAll(".duration-label-group").remove();
       }
 
       // === TOOLTIP ===
@@ -1961,6 +2025,7 @@ this.update(this.lastOptions);
       width: width,
       selectedFormat: this.selectedFormat,
       translateX: margin.left,
+      scrollLeft: 0,
       fmtSettings: this.fmtSettings
     });
 
@@ -2014,6 +2079,7 @@ this.update(this.lastOptions);
         width: width,
         selectedFormat: this.selectedFormat,
         translateX: margin.left,
+        scrollLeft: 0,
         fmtSettings: this.fmtSettings
       });
 
@@ -2149,15 +2215,36 @@ this.update(this.lastOptions);
         return baseWidth * (c > 1 ? c / 100 : c);
       });
     if (this.fmtSettings.labelCard.show.value) {
-      this.ganttG.selectAll<SVGTextElement, BarDatum>(".duration-label")
-        .attr("x", d => {
-          const end = d.end instanceof Date ? d.end : null;
-          const secEnd = d.secondaryEnd instanceof Date ? d.secondaryEnd : null;
-
-          const baseDate = (end && secEnd && secEnd > end) ? secEnd : end;
-
-          return baseDate ? newX(baseDate) + 4 : -9999;
-        });
+      const hasLabels = this.ganttG.selectAll(".duration-label-group").size() > 0;
+      if (this.shouldShowDurationLabels(newX)) {
+        if (hasLabels) {
+          updateLabelPositions(
+            this.ganttG,
+            newX,
+            this.fmtSettings.labelCard.labelPosition.value.value as "end" | "center" | "start"
+          );
+        } else {
+          const yOffLocal = (this.fmtSettings.taskCard.taskHeight.value - this.barH) / 2;
+          renderDurationLabels({
+            svg: this.ganttG,
+            bars: this.cachedAllBars,
+            x: newX,
+            y: y,
+            yOffset: yOffLocal,
+            barHeight: this.barH,
+            formatString: this.fmtSettings.labelCard.labelContent.value,
+            labelPosition: this.fmtSettings.labelCard.labelPosition.value.value as "end" | "center" | "start",
+            fontFamily: this.fmtSettings.barCard.labelGroup.fontFamily.value,
+            fontSize: this.fmtSettings.barCard.labelGroup.fontSize.value,
+            fontColor: this.fmtSettings.barCard.labelGroup.fontColor.value.value,
+            bold: this.fmtSettings.barCard.labelGroup.bold.value,
+            italic: this.fmtSettings.barCard.labelGroup.italic.value,
+            underline: this.fmtSettings.barCard.labelGroup.underline.value
+          });
+        }
+      } else if (hasLabels) {
+        this.ganttG.selectAll(".duration-label-group").remove();
+      }
     }
 
     this.ganttG.selectAll<SVGTextElement, BarDatum>(".completion-label")
@@ -2433,24 +2520,34 @@ this.update(this.lastOptions);
     const baseDays = (end.getTime() - start.getTime()) / (1000 * 3600 * 24);
     const visibleDays = baseDays / t.k;
     const pxPerDay = width / visibleDays;
-    if (pxPerDay > 125) return "Hora";
+    const pxPerHour = pxPerDay / 24;
+    
+    // Alinear con los umbrales de renderXAxisBottom.ts
+    if (pxPerHour > 60) return "Hora";   // 10 min
+    if (pxPerHour > 30) return "Hora";   // 30 min
+    if (pxPerHour > 15) return "Hora";   // 1 hora
+    if (pxPerHour > 8) return "Hora";     // 2 horas
+    if (pxPerHour > 4) return "Hora";     // 6 horas
+    if (pxPerHour > 2) return "Hora";     // 12 horas
     if (pxPerDay > 17) return "Día";
     if (pxPerDay > 2) return "Mes";
     return "Año";
   }
 
   private getDateRangeFromFormat(fmt: FormatType): [Date, Date] {
-    const [minDate, maxDate] = this.xOriginal.domain();
+    const valid = this.cacheTasks.filter(t => t.start && t.end);
+    const dataMin = valid.length ? d3.min(valid, t => t.start)! : this.xOriginal.domain()[0];
+    const dataMax = valid.length ? d3.max(valid, t => t.end)! : this.xOriginal.domain()[1];
     switch (fmt) {
       case "Hora":
-        return [minDate, d3.timeDay.offset(minDate, 1)];
+        return [dataMin, d3.timeDay.offset(dataMin, 1)];
       case "Día":
-        return [minDate, d3.timeMonth.offset(minDate, 1)];
+        return [dataMin, d3.timeMonth.offset(dataMin, 1)];
       case "Mes":
-        return [minDate, d3.timeYear.offset(minDate, 1)];
+        return [dataMin, d3.timeYear.offset(dataMin, 1)];
       case "Año":
       default:
-        return [minDate, maxDate];
+        return [dataMin, dataMax];
     }
   }
 
@@ -2484,6 +2581,16 @@ this.update(this.lastOptions);
 
     this.ganttSVG.call(this.zoomBehavior.transform, t);
   }
+  private shouldShowDurationLabels(x: d3.ScaleTime<number, number>): boolean {
+    if (this.selectedFormat !== "Hora") return false;
+    const [d0, d1] = x.domain();
+    const visibleHours = (d1.getTime() - d0.getTime()) / 3600000;
+    if (visibleHours <= 0) return false;
+    const rangeWidth = x.range()[1] - x.range()[0];
+    const pxPerHour = rangeWidth / visibleHours;
+    return pxPerHour > 8;
+  }
+
   private updateFormatButtonsUI(fmt: FormatType) {
     const buttons = this.rightBtns.selectAll("button");
     buttons.classed("active", d => d === fmt);
