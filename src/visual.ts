@@ -448,8 +448,9 @@ this.update(this.lastOptions);
     const isDataUpdate = (opts.type & powerbi.VisualUpdateType.Data) !== 0;
     const isResizeOnly = opts.type === powerbi.VisualUpdateType.Resize;
     const isViewportChange = opts.type === powerbi.VisualUpdateType.ViewMode;
+    const isStyleUpdate = (opts.type & powerbi.VisualUpdateType.Style) !== 0;
 
-    if (this.ganttG && !isDataUpdate && !isResizeOnly && !isViewportChange) {
+    if (this.ganttG && !isDataUpdate && !isResizeOnly && !isViewportChange && !isStyleUpdate) {
       return;
     }
     if (isDataUpdate) {
@@ -496,6 +497,8 @@ this.update(this.lastOptions);
         }
       }
 
+    } else if (isStyleUpdate) {
+      preserveView = true;
     }
 
     let savedScrollTop: number | undefined;

@@ -141,7 +141,7 @@
       "bold":{"type":{"bool":true}},"italic":{"type":{"bool":true}},
       "underline":{"type":{"bool":true}}
     }},
-    "todayMarkerGroup":{"displayName":"Today Marker","properties":{
+    "timeMarkerCard":{"displayName":"Today Marker","properties":{
       "fontFamily":{"displayName":"Fuente","type":{"formatting":{"fontFamily":true}}},
       "fontSize":{"displayName":"Tamaño","type":{"formatting":{"fontSize":true}}},
       "fontColor":{"displayName":"Color","type":{"fill":{"solid":{"color":true}}}},
