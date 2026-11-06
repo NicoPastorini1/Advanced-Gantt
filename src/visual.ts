@@ -2122,7 +2122,7 @@ this.update(this.lastOptions);
     return result.tasks;
   }
 
-  private buildRows(tasks: Task[], cache: Map<string, boolean>, showSubChildren = true) {
+  private buildRows(tasks: Task[], cache: Map<string, boolean>, showSubChildren = false) {
     const result = buildRows(tasks, cache, showSubChildren);
     this.groupRange = result.groupRange;
     return { visibleRows: result.visibleRows, expanded: result.expanded };

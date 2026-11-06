@@ -474,7 +474,7 @@ class TaskCardSetting extends SimpleCard {
         name: "showSubChildren",
         displayName: "Mostrar sub-hijos",
         description: "Muestra el nivel de sub-tareas (leyenda)",
-        value: true
+        value: false
     });
 
     showSecondaryColumns = new ToggleSwitch({

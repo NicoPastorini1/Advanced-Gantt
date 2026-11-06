@@ -4,7 +4,7 @@ import { Task, VisualRow, GroupRange } from "../types";
 export function buildRows(
   tasks: Task[],
   cache: Map<string, boolean>,
-  showSubChildren = true
+  showSubChildren = false
 ): { visibleRows: VisualRow[]; expanded: Map<string, boolean>; groupRange: Map<string, GroupRange> } {
   const rows: VisualRow[] = [];
   const groupRange = new Map<string, GroupRange>();
