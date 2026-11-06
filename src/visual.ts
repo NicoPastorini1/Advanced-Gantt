@@ -1883,6 +1883,9 @@ this.update(this.lastOptions);
         .attr("fill", this.fmtSettings.completionCard.fontColor.value.value)
         .attr("font-size", this.fmtSettings.completionCard.fontSize.value)
         .attr("font-family", this.fmtSettings.completionCard.fontFamily.value)
+        .attr("font-weight", this.fmtSettings.completionCard.bold.value ? "bold" : "normal")
+        .attr("font-style", this.fmtSettings.completionCard.italic.value ? "italic" : "normal")
+        .attr("text-decoration", this.fmtSettings.completionCard.underline.value ? "underline" : "none")
         .attr("text-anchor", "start")
         .attr("dominant-baseline", "middle");
 

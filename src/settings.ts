@@ -793,7 +793,7 @@ class completionCardSettings extends SimpleCard {
     });
 
 
-    public slices: formattingSettings.Slice[] = [this.font];
+    public slices: formattingSettings.Slice[] = [this.font, this.fontColor];
 }
 /* MODELO GLOBAL*/
 export class VisualFormattingSettingsModel extends Model {
