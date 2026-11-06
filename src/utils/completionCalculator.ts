@@ -10,7 +10,7 @@ export function getCompletionByGroup(rowKey: string, allBars: BarDatum[]): numbe
         return completionCache.get(cacheKey)!;
     }
 
-    const groupId = rowKey.replace(/^G:/, "");
+    const groupId = rowKey.replace(/^[PG]:/, "");
 
     const children = allBars.filter(b => {
         if (b.isGroup) return false;

@@ -51,6 +51,7 @@ export interface BarDatum {
   selectionId: ISelectionId;
   legend?: string;
   gradientId?: string;
+  completionGradientId?: string;
   resolvedColor?: string;
   labelText?: string;
   labelValue?: string;
@@ -145,6 +146,7 @@ export class Visual implements IVisual {
 
     setOpacity(this.ganttG.selectAll<SVGElement, BarDatum>(".bar"));
     setOpacity(this.ganttG.selectAll<SVGElement, BarDatum>(".completion-bar"));
+    setOpacity(this.ganttG.selectAll<SVGElement, BarDatum>(".group-completion"));
     setOpacity(this.ganttG.selectAll<SVGElement, BarDatum>(".bar-secondary"));
     setOpacity(this.ganttG.selectAll<SVGLineElement, BarDatum>(".bar-secondary-end-marker"));
     setOpacity(this.ganttG.selectAll<SVGElement, BarDatum>(".duration-label"));
@@ -1412,6 +1414,7 @@ this.update(this.lastOptions);
       return {
         ...bar,
         gradientId: `bar-gradient-${i}`,
+        completionGradientId: bar.isGroup ? `group-completion-gradient-${i}` : undefined,
         labelText,
         taskName: bar.taskName || bar.id
       };
@@ -1451,6 +1454,33 @@ this.update(this.lastOptions);
       gradient.append("stop")
         .attr("offset", `${completion * 100}%`)
         .attr("stop-color", colorClaro);
+
+      if (d.isGroup && d.completionGradientId) {
+        const completionGradient = defs.append("linearGradient")
+          .attr("id", d.completionGradientId)
+          .attr("x1", "0%")
+          .attr("x2", "100%")
+          .attr("y1", "0%")
+          .attr("y2", "0%");
+
+        completionGradient.append("stop")
+          .attr("offset", "0%")
+          .attr("stop-color", baseColorStr);
+
+        completionGradient.append("stop")
+          .attr("offset", `${completion * 100}%`)
+          .attr("stop-color", baseColorStr);
+
+        completionGradient.append("stop")
+          .attr("offset", `${completion * 100}%`)
+          .attr("stop-color", baseColorStr)
+          .attr("stop-opacity", 0);
+
+        completionGradient.append("stop")
+          .attr("offset", "100%")
+          .attr("stop-color", baseColorStr)
+          .attr("stop-opacity", 0);
+      }
     });
 
     const dependencies: { from: string; to: string }[] = [];
@@ -1646,6 +1676,26 @@ this.update(this.lastOptions);
         .attr("rx", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value)
         .attr("ry", (barCfg.barGroup.slices.find(s => s.name === "cornerRadius") as formattingSettings.Slider).value);
 
+      // === AVANCE DE PADRES ===
+      this.ganttG.selectAll<SVGPathElement, BarDatum>(".group-completion")
+        .data(allBars.filter(d =>
+          d.isGroup &&
+          d.rowKey?.startsWith("P:") &&
+          d.completionGradientId &&
+          d.start instanceof Date &&
+          !isNaN(d.start.getTime()) &&
+          d.end instanceof Date &&
+          !isNaN(d.end.getTime()) &&
+          d.completion !== undefined &&
+          d.completion > 0
+        ), d => d.id)
+        .join("path")
+        .raise()
+        .attr("class", "group-completion")
+        .attr("d", d => getGroupBarPath(x, yScale, d, taskFmt.taskHeight.value, this.barH))
+        .attr("fill", d => `url(#${d.completionGradientId})`)
+        .style("pointer-events", "none");
+
       // === BARRAS SECUNDARIAS ===
       this.ganttG
         .selectAll(".bar-secondary")
@@ -1806,7 +1856,6 @@ this.update(this.lastOptions);
       // === COMPLETION LABELS ===
       this.ganttG.selectAll<SVGTextElement, BarDatum>(".completion-label")
         .data(allBars.filter(d =>
-          !d.isGroup &&
           d.start instanceof Date &&
           !isNaN(d.start.getTime()) &&
           d.end instanceof Date &&
@@ -2265,6 +2314,16 @@ this.update(this.lastOptions);
         d.end instanceof Date &&
         !isNaN(d.end.getTime())
       )
+      .attr("d", d =>
+        getGroupBarPath(
+          newX,
+          y,
+          d,
+          this.fmtSettings.taskCard.taskHeight.value,
+          barH
+        )
+      );
+    this.ganttG.selectAll<SVGPathElement, BarDatum>(".group-completion")
       .attr("d", d =>
         getGroupBarPath(
           newX,
