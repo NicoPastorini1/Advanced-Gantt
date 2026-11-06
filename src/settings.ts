@@ -303,10 +303,8 @@ class TodayMarkerStyleGroup extends SimpleCard {
     public fontColor: ColorPicker = new ColorPicker({
         name: "fontColor",
         value: { value: "#ff2929ff" },
-        displayName: "Color de fuente"
+        displayName: "Color del marcador"
     });
-
-
 
     public font: FontControl = new FontControl({
         name: "font",
@@ -318,13 +316,7 @@ class TodayMarkerStyleGroup extends SimpleCard {
         underline: this.underline
     });
 
-    public markColor = new ColorPicker({
-        name: "barColor",
-        displayName: "Color de marcador",
-        value: { value: "#ff2929ff" }
-    });
-
-    public slices: formattingSettings.Slice[] = [this.font, this.markColor];
+    public slices: formattingSettings.Slice[] = [this.font, this.fontColor];
 }
 
 class labelCardSettings extends SimpleCard {

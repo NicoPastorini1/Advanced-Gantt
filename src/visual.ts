@@ -1848,7 +1848,11 @@ this.update(this.lastOptions);
         .text("Hoy")
         .attr("x", d => x(d) + 5)
         .attr("y", 10)
-        .attr("font-size", 15)
+        .attr("font-size", this.fmtSettings.timeMarkerCard.todayGroup.fontSize.value)
+        .attr("font-family", this.fmtSettings.timeMarkerCard.todayGroup.fontFamily.value)
+        .attr("font-weight", this.fmtSettings.timeMarkerCard.todayGroup.bold.value ? "bold" : "normal")
+        .attr("font-style", this.fmtSettings.timeMarkerCard.todayGroup.italic.value ? "italic" : "normal")
+        .attr("text-decoration", this.fmtSettings.timeMarkerCard.todayGroup.underline.value ? "underline" : "none")
         .attr("fill", this.fmtSettings.timeMarkerCard.todayGroup.fontColor.value.value)
         .attr("writing-mode", "vertical-rl")
         .attr("text-anchor", "start");
